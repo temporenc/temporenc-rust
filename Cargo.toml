@@ -1,0 +1,6 @@
+[package]
+name = "temporenc"
+version = "0.1.0"
+authors = ["Marshall Pierce <marshall@mpierce.org>"]
+
+[dependencies]
