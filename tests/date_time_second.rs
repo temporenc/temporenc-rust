@@ -11,7 +11,7 @@ use std::iter::once;
 #[test]
 fn deser_dts_all_missing() {
     let bytes = vec!(0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
-    let d = DateTimeSecond::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecond::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(None, d.year());
     assert_eq!(None, d.month());
     assert_eq!(None, d.day());
@@ -24,7 +24,7 @@ fn deser_dts_all_missing() {
 #[test]
 fn deser_dts_all_no_subsec() {
     let bytes = vec!(0x77, 0xBF, 0x07, 0x49, 0x93, 0x00);
-    let d = DateTimeSecond::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecond::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -38,7 +38,7 @@ fn deser_dts_all_no_subsec() {
 #[test]
 fn deser_dts_all_ms() {
     let bytes = vec!(0x47, 0xBF, 0x07, 0x49, 0x93, 0x07, 0xB0);
-    let d = DateTimeSecond::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecond::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -51,7 +51,7 @@ fn deser_dts_all_ms() {
 #[test]
 fn deser_dts_all_us() {
     let bytes = vec!(0x57, 0xBF, 0x07, 0x49, 0x93, 0x07, 0x89, 0x00);
-    let d = DateTimeSecond::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecond::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -64,7 +64,7 @@ fn deser_dts_all_us() {
 #[test]
 fn deser_dts_all_ns() {
     let bytes = vec!(0x67, 0xBF, 0x07, 0x49, 0x93, 0x07, 0x5B, 0xCD, 0x15);
-    let d = DateTimeSecond::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecond::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -157,7 +157,7 @@ fn roundtrip_dts_random_fractional() {
     let minute = Some(12);
     let second = Some(13);
 
-    let rounds = 50_000;
+    let rounds = 200_000;
 
     for frac_second in once(FractionalSecond::None)
         .chain(range_iter(MILLIS_MIN, MILLIS_MAX + 1).take(rounds).map(|s| FractionalSecond::Milliseconds(s)))
@@ -204,8 +204,8 @@ fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, ho
 
     vec.clear();
     assert_eq!(expected_length,
-        DateTimeSecond::serialize(year, month, day, hour, minute, second, frac_second, vec).unwrap());
-    let dts = DateTimeSecond::deserialize(vec.as_slice()).unwrap();
+        DateTimeSubSecond::serialize(year, month, day, hour, minute, second, frac_second, vec).unwrap());
+    let dts = DateTimeSubSecond::deserialize(vec.as_slice()).unwrap();
 
     assert_eq!(year, dts.year());
     assert_eq!(month, dts.month());
