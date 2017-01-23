@@ -10,8 +10,8 @@ use std::iter::once;
 
 #[test]
 fn deser_dts_all_missing() {
-    let bytes = &[0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
-    let d = DateTimeSecond::from_slice(bytes).unwrap();
+    let bytes = vec!(0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
+    let d = DateTimeSecond::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(None, d.year());
     assert_eq!(None, d.month());
     assert_eq!(None, d.day());
@@ -23,8 +23,8 @@ fn deser_dts_all_missing() {
 
 #[test]
 fn deser_dts_all_no_subsec() {
-    let bytes = &[0x77, 0xBF, 0x07, 0x49, 0x93, 0x00];
-    let d = DateTimeSecond::from_slice(bytes).unwrap();
+    let bytes = vec!(0x77, 0xBF, 0x07, 0x49, 0x93, 0x00);
+    let d = DateTimeSecond::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -37,8 +37,8 @@ fn deser_dts_all_no_subsec() {
 
 #[test]
 fn deser_dts_all_ms() {
-    let bytes = &[0x47, 0xBF, 0x07, 0x49, 0x93, 0x07, 0xB0];
-    let d = DateTimeSecond::from_slice(bytes).unwrap();
+    let bytes = vec!(0x47, 0xBF, 0x07, 0x49, 0x93, 0x07, 0xB0);
+    let d = DateTimeSecond::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -50,8 +50,8 @@ fn deser_dts_all_ms() {
 
 #[test]
 fn deser_dts_all_us() {
-    let bytes = &[0x57, 0xBF, 0x07, 0x49, 0x93, 0x07, 0x89, 0x00];
-    let d = DateTimeSecond::from_slice(bytes).unwrap();
+    let bytes = vec!(0x57, 0xBF, 0x07, 0x49, 0x93, 0x07, 0x89, 0x00);
+    let d = DateTimeSecond::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -63,8 +63,8 @@ fn deser_dts_all_us() {
 
 #[test]
 fn deser_dts_all_ns() {
-    let bytes = &[0x67, 0xBF, 0x07, 0x49, 0x93, 0x07, 0x5B, 0xCD, 0x15];
-    let d = DateTimeSecond::from_slice(bytes).unwrap();
+    let bytes = vec!(0x67, 0xBF, 0x07, 0x49, 0x93, 0x07, 0x5B, 0xCD, 0x15);
+    let d = DateTimeSecond::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -78,7 +78,7 @@ fn deser_dts_all_ns() {
 fn roundtrip_dts_all_random() {
     let mut vec = Vec::new();
 
-    let rounds = 6;
+    let rounds = 5;
 
     // try a whole bunch of random values, plus the None value, in each field
 
@@ -204,8 +204,8 @@ fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, ho
 
     vec.clear();
     assert_eq!(expected_length,
-    write_date_time_subsecond(year, month, day, hour, minute, second, frac_second, vec).unwrap());
-    let dts = DateTimeSecond::from_slice(&vec).unwrap();
+        DateTimeSecond::serialize(year, month, day, hour, minute, second, frac_second, vec).unwrap());
+    let dts = DateTimeSecond::deserialize(vec.as_slice()).unwrap();
 
     assert_eq!(year, dts.year());
     assert_eq!(month, dts.month());
