@@ -19,15 +19,15 @@ pub trait Time {
 }
 
 pub trait SubSecond {
-    /// Milliseconds of fractional second, if specified.
-    /// Other fractional second precisions may be specified if this is None.
-    fn millisecond(&self) -> Option<u16>;
-    /// Microseconds of fractional second, if specified.
-    /// Other fractional second precisions may be specified if this is None.
-    fn microsecond(&self) -> Option<u32>;
-    /// Nanoseconds of fractional second, if specified.
-    /// Other fractional second precisions may be specified if this is None.
-    fn nanosecond(&self) -> Option<u32>;
+    fn fractional_second(&self) -> FractionalSecond;
+}
+
+#[derive(Debug, PartialEq)]
+pub enum FractionalSecond {
+    Milliseconds(u16),
+    Microseconds(u32),
+    Nanoseconds(u32),
+    NoValue
 }
 
 pub trait Offset {
@@ -274,7 +274,7 @@ impl<'a> DateTimeSecond<'a> {
                 len = 9;
             }
             0b0011_0000 => {
-                precision = PrecisionTag::NotPresent;
+                precision = PrecisionTag::NoValue;
                 len = 6;
             }
             _ => {
@@ -292,7 +292,6 @@ impl<'a> DateTimeSecond<'a> {
         })
     }
 }
-
 
 
 impl<'a> Date for DateTimeSecond<'a> {
@@ -367,43 +366,34 @@ impl<'a> Time for DateTimeSecond<'a> {
 }
 
 impl<'a> SubSecond for DateTimeSecond<'a> {
-    fn millisecond(&self) -> Option<u16> {
-        if self.precision != PrecisionTag::Milli {
-            return None
+    fn fractional_second(&self) -> FractionalSecond {
+        match self.precision {
+            PrecisionTag::NoValue => FractionalSecond::NoValue,
+            PrecisionTag::Milli => {
+                // bits 44-52
+                let mut ms = ((self.data[5] & 0x3F) as u16) << 4;
+                ms |= (self.data[6] >> 4) as u16;
+
+                FractionalSecond::Milliseconds(ms)
+            }
+            PrecisionTag::Micro => {
+                // bits 44-62
+                let mut us = ((self.data[5] & 0x3F) as u32) << 14;
+                us |= (self.data[6] as u32) << 6;
+                us |= ((self.data[7] & 0xFC) >> 2) as u32;
+
+                FractionalSecond::Microseconds(us)
+            }
+            PrecisionTag::Nano => {
+                // bits 44-72
+                let mut ns = ((self.data[5] & 0x3F) as u32) << 24;
+                ns |= (self.data[6] as u32) << 16;
+                ns |= (self.data[7] as u32) << 8;
+                ns |= self.data[8] as u32;
+
+                FractionalSecond::Nanoseconds(ns)
+            }
         }
-
-        // bits 44-52
-        let mut ms = ((self.data[5] & 0x3F) as u16) << 4;
-        ms |= (self.data[6] >> 4) as u16;
-
-        Some(ms)
-    }
-
-    fn microsecond(&self) -> Option<u32> {
-        if self.precision != PrecisionTag::Micro {
-            return None
-        }
-
-        // bits 44-62
-        let mut us = ((self.data[5] & 0x3F) as u32) << 14;
-        us |= (self.data[6] as u32) << 6;
-        us |= ((self.data[7] & 0xFC) >> 2) as u32;
-
-        Some(us)
-    }
-
-    fn nanosecond(&self) -> Option<u32> {
-        if self.precision != PrecisionTag::Nano {
-            return None
-        }
-
-        // bits 44-72
-        let mut ns = ((self.data[5] & 0x3F) as u32) << 24;
-        ns |= (self.data[6] as u32) << 16;
-        ns |= (self.data[7] as u32) << 8;
-        ns |= self.data[8] as u32;
-
-        Some(ns)
     }
 }
 
@@ -439,7 +429,7 @@ enum PrecisionTag {
     Milli,
     Micro,
     Nano,
-    NotPresent
+    NoValue
 }
 
 #[derive(Debug, PartialEq)]

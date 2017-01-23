@@ -18,9 +18,7 @@ fn deser_dts_all_missing() {
     assert_eq!(None, d.hour());
     assert_eq!(None, d.minute());
     assert_eq!(None, d.second());
-    assert_eq!(None, d.millisecond());
-    assert_eq!(None, d.microsecond());
-    assert_eq!(None, d.nanosecond());
+    assert_eq!(FractionalSecond::NoValue, d.fractional_second());
 }
 
 #[test]
@@ -33,9 +31,7 @@ fn deser_dts_all_no_subsec() {
     assert_eq!(Some(18), d.hour());
     assert_eq!(Some(25), d.minute());
     assert_eq!(Some(12), d.second());
-    assert_eq!(None, d.millisecond());
-    assert_eq!(None, d.microsecond());
-    assert_eq!(None, d.nanosecond());
+    assert_eq!(FractionalSecond::NoValue, d.fractional_second());
 }
 
 
@@ -49,9 +45,7 @@ fn deser_dts_all_ms() {
     assert_eq!(Some(18), d.hour());
     assert_eq!(Some(25), d.minute());
     assert_eq!(Some(12), d.second());
-    assert_eq!(Some(123), d.millisecond());
-    assert_eq!(None, d.microsecond());
-    assert_eq!(None, d.nanosecond());
+    assert_eq!(FractionalSecond::Milliseconds(123), d.fractional_second());
 }
 
 #[test]
@@ -64,9 +58,7 @@ fn deser_dts_all_us() {
     assert_eq!(Some(18), d.hour());
     assert_eq!(Some(25), d.minute());
     assert_eq!(Some(12), d.second());
-    assert_eq!(None, d.millisecond());
-    assert_eq!(Some(123456), d.microsecond());
-    assert_eq!(None, d.nanosecond());
+    assert_eq!(FractionalSecond::Microseconds(123456), d.fractional_second());
 }
 
 #[test]
@@ -79,9 +71,7 @@ fn deser_dts_all_ns() {
     assert_eq!(Some(18), d.hour());
     assert_eq!(Some(25), d.minute());
     assert_eq!(Some(12), d.second());
-    assert_eq!(None, d.millisecond());
-    assert_eq!(None, d.microsecond());
-    assert_eq!(Some(123456789), d.nanosecond());
+    assert_eq!(FractionalSecond::Nanoseconds(123456789), d.fractional_second());
 }
 
 #[test]
