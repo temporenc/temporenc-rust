@@ -18,16 +18,16 @@ pub trait Time {
     fn second(&self) -> Option<u8>;
 }
 
-pub trait FractionalSecond {
+pub trait SubSecond {
     /// Milliseconds of fractional second, if specified.
     /// Other fractional second precisions may be specified if this is None.
-    fn ms(&self) -> Option<u16>;
+    fn millisecond(&self) -> Option<u16>;
     /// Microseconds of fractional second, if specified.
     /// Other fractional second precisions may be specified if this is None.
-    fn us(&self) -> Option<u32>;
+    fn microsecond(&self) -> Option<u32>;
     /// Nanoseconds of fractional second, if specified.
     /// Other fractional second precisions may be specified if this is None.
-    fn ns(&self) -> Option<u32>;
+    fn nanosecond(&self) -> Option<u32>;
 }
 
 pub trait Offset {
@@ -53,7 +53,7 @@ pub struct DateOnly<'a> {
 }
 
 pub fn write_date<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>, writer: &mut W)
-        -> Result<usize, SerializationError> {
+                            -> Result<usize, SerializationError> {
     check_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
     check_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
     check_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
@@ -79,7 +79,7 @@ impl<'a> DateOnly<'a> {
         }
 
         if !TypeTag::DateOnly.matches(slice[0]) {
-            return Err(DeserializationError::WrongTag);
+            return Err(DeserializationError::IncorrectTypeTag);
         }
 
         Ok(DateOnly {
@@ -139,7 +139,7 @@ pub struct TimeOnly<'a> {
 }
 
 pub fn write_time<W: Write>(hour: Option<u8>, minute: Option<u8>, second: Option<u8>, writer: &mut W)
-        -> Result<usize, SerializationError> {
+                            -> Result<usize, SerializationError> {
     check_outside_range(hour, HOUR_MIN, HOUR_MAX, TemporalField::Hour)?;
     check_outside_range(minute, MINUTE_MIN, MINUTE_MAX, TemporalField::Minute)?;
     check_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
@@ -165,7 +165,7 @@ impl<'a> TimeOnly<'a> {
         }
 
         if !TypeTag::TimeOnly.matches(slice[0]) {
-            return Err(DeserializationError::WrongTag);
+            return Err(DeserializationError::IncorrectTypeTag);
         }
 
         Ok(TimeOnly {
@@ -215,7 +215,197 @@ pub struct DateTime {}
 
 pub struct DateTimeOffset {}
 
-pub struct DateTimeSecond {}
+pub struct DateTimeSecond<'a> {
+    // 2-bit tag, 2-bit subsecond precision tag, 12-bit year, 4-bit month, 5-bit day, 5-bit hour,
+    // 6-bit minute, 6-bit second, and 0, 10, 20, or 30-bit subsecond value (as V in bit diagram)
+    // TTPP YYYY | YYYY YYYY | MMMM DDDD | DHHH HHMM
+    // MMMM SSSS | SSVV VVVV | [0, 1, 2, or 3 subsecond bytes]
+    data: &'a [u8],
+    precision: PrecisionTag
+}
+
+pub fn write_date_time_subsecond<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
+                                           hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
+                                           writer: &mut W)
+                                           -> Result<usize, SerializationError> {
+    check_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
+    check_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
+    check_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
+    check_outside_range(hour, HOUR_MIN, HOUR_MAX, TemporalField::Hour)?;
+    check_outside_range(minute, MINUTE_MIN, MINUTE_MAX, TemporalField::Minute)?;
+    check_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
+
+    let year_num = year.unwrap_or(YEAR_RAW_NONE);
+    let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
+    let day_num = day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE);
+    let hour_num = hour.unwrap_or(HOUR_RAW_NONE);
+    let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
+    let second_num = second.unwrap_or(SECOND_RAW_NONE);
+
+    // TODO
+
+    Ok(0)
+}
+
+impl<'a> DateTimeSecond<'a> {
+    pub fn from_slice(slice: &[u8]) -> Result<DateTimeSecond, DeserializationError> {
+        if slice.len() < 1 {
+            return Err(DeserializationError::InputTooShort);
+        }
+
+        let first_byte = slice[0];
+        if !TypeTag::DateTimeSubSecond.matches(first_byte) {
+            return Err(DeserializationError::IncorrectTypeTag);
+        }
+
+        let precision;
+        let len;
+        match first_byte & 0x30 {
+            0 => {
+                precision = PrecisionTag::Milli;
+                len = 7;
+            }
+            0b0001_0000 => {
+                precision = PrecisionTag::Micro;
+                len = 8;
+            }
+            0b0010_0000 => {
+                precision = PrecisionTag::Nano;
+                len = 9;
+            }
+            0b0011_0000 => {
+                precision = PrecisionTag::NotPresent;
+                len = 6;
+            }
+            _ => {
+                return Err(DeserializationError::IncorrectPrecisionTag);
+            }
+        }
+
+        if slice.len() < len {
+            return Err(DeserializationError::InputTooShort);
+        }
+
+        Ok(DateTimeSecond {
+            data: &slice[0..len],
+            precision: precision
+        })
+    }
+}
+
+
+
+impl<'a> Date for DateTimeSecond<'a> {
+    fn year(&self) -> Option<u16> {
+        // bits 5-16
+        let mut year = ((self.data[0] & 0x0F) as u16) << 8;
+        year |= self.data[1] as u16;
+
+        if year == YEAR_RAW_NONE {
+            None
+        } else {
+            Some(year)
+        }
+    }
+
+    fn month(&self) -> Option<u8> {
+        // bits 17-20
+        let month = self.data[2] >> 4;
+
+        if month == MONTH_RAW_NONE {
+            None
+        } else {
+            Some(month + 1)
+        }
+    }
+
+    fn day(&self) -> Option<u8> {
+        // bits 21-25
+        let day = ((self.data[2] & 0x0F) << 1) | (self.data[3] >> 7);
+
+        if day == DAY_RAW_NONE {
+            None
+        } else {
+            Some(day + 1)
+        }
+    }
+}
+
+impl<'a> Time for DateTimeSecond<'a> {
+    fn hour(&self) -> Option<u8> {
+        // bits 26-30
+        let hour = (self.data[3] & 0x7C) >> 2;
+
+        if hour == HOUR_RAW_NONE {
+            None
+        } else {
+            Some(hour)
+        }
+    }
+
+    fn minute(&self) -> Option<u8> {
+        // bits 31-36
+        let minute = ((self.data[3] & 0x03) << 4) | ((self.data[4] & 0xF0) >> 4);
+
+        if minute == MINUTE_RAW_NONE {
+            None
+        } else {
+            Some(minute)
+        }
+    }
+
+    fn second(&self) -> Option<u8> {
+        // bits 37-42
+        let seconds = ((self.data[4] & 0x0F) << 2) | ((self.data[5] & 0xC0) >> 6);
+
+        if seconds == SECOND_RAW_NONE {
+            None
+        } else {
+            Some(seconds)
+        }
+    }
+}
+
+impl<'a> SubSecond for DateTimeSecond<'a> {
+    fn millisecond(&self) -> Option<u16> {
+        if self.precision != PrecisionTag::Milli {
+            return None
+        }
+
+        // bits 44-52
+        let mut ms = ((self.data[5] & 0x3F) as u16) << 4;
+        ms |= (self.data[6] >> 4) as u16;
+
+        Some(ms)
+    }
+
+    fn microsecond(&self) -> Option<u32> {
+        if self.precision != PrecisionTag::Micro {
+            return None
+        }
+
+        // bits 44-62
+        let mut us = ((self.data[5] & 0x3F) as u32) << 14;
+        us |= (self.data[6] as u32) << 6;
+        us |= ((self.data[7] & 0xFC) >> 2) as u32;
+
+        Some(us)
+    }
+
+    fn nanosecond(&self) -> Option<u32> {
+        if self.precision != PrecisionTag::Nano {
+            return None
+        }
+
+        // bits 44-72
+        let mut ns = ((self.data[5] & 0x3F) as u32) << 24;
+        ns |= (self.data[6] as u32) << 16;
+        ns |= (self.data[7] as u32) << 8;
+        ns |= self.data[8] as u32;
+
+        Some(ns)
+    }
+}
 
 pub struct DateTimeSecondOffset {}
 
@@ -224,8 +414,8 @@ enum TypeTag {
     TimeOnly,
     DateTime,
     DateTimeOffset,
-    DateTimeSubsecond,
-    DateTimeSubsecondOffset
+    DateTimeSubSecond,
+    DateTimeSubSecondOffset
 }
 
 impl TypeTag {
@@ -238,16 +428,25 @@ impl TypeTag {
             &TypeTag::TimeOnly => byte & top_seven_bits == TIME_TAG,
             &TypeTag::DateTime => byte & top_two_bits == DATE_TIME_TAG,
             &TypeTag::DateTimeOffset => byte & top_three_bits == DATE_TIME_OFFSET_TAG,
-            &TypeTag::DateTimeSubsecond => byte & top_two_bits == DATE_TIME_SUBSECOND_TAG,
-            &TypeTag::DateTimeSubsecondOffset => byte & top_three_bits == DATE_TIME_SUBSECOND_OFFSET_TAG
+            &TypeTag::DateTimeSubSecond => byte & top_two_bits == DATE_TIME_SUBSECOND_TAG,
+            &TypeTag::DateTimeSubSecondOffset => byte & top_three_bits == DATE_TIME_SUBSECOND_OFFSET_TAG
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
+enum PrecisionTag {
+    Milli,
+    Micro,
+    Nano,
+    NotPresent
+}
+
+#[derive(Debug, PartialEq)]
 pub enum DeserializationError {
     InputTooShort,
-    WrongTag
+    IncorrectTypeTag,
+    IncorrectPrecisionTag
 }
 
 #[derive(Debug, PartialEq)]
@@ -314,7 +513,7 @@ fn write_map_err<W: Write>(byte: u8, writer: &mut W) -> Result<usize, Serializat
 }
 
 fn check_outside_range<T: PartialOrd>(val: Option<T>, min: T, max: T, field: TemporalField)
-        -> Result<(), SerializationError> {
+                                      -> Result<(), SerializationError> {
     if let Some(v) = val {
         if v < min || v > max {
             return Err(SerializationError::FieldOutOfRange(field))

@@ -26,7 +26,7 @@ fn deser_time_none_missing() {
 #[test]
 fn deser_time_wrong_tag() {
     let bytes = &[0xA3, 0xFF, 0xFF];
-    assert_eq!(DeserializationError::WrongTag, TimeOnly::from_slice(bytes).unwrap_err());
+    assert_eq!(DeserializationError::IncorrectTypeTag, TimeOnly::from_slice(bytes).unwrap_err());
 }
 
 #[test]
@@ -39,9 +39,9 @@ fn deser_time_too_short() {
 fn time_roundtrip() {
     let mut vec = Vec::new();
 
-    for hour in once(None).chain((HOUR_MIN..(HOUR_MAX + 1)).map(|y| Some(y))) {
-        for minute in once(None).chain((MINUTE_MIN..(MINUTE_MAX + 1)).map(|y| Some(y))) {
-            for second in once(None).chain((SECOND_MIN..(SECOND_MAX + 1)).map(|y| Some(y))) {
+    for hour in once(None).chain((HOUR_MIN..(HOUR_MAX + 1)).map(|h| Some(h))) {
+        for minute in once(None).chain((MINUTE_MIN..(MINUTE_MAX + 1)).map(|m| Some(m))) {
+            for second in once(None).chain((SECOND_MIN..(SECOND_MAX + 1)).map(|s| Some(s))) {
                 vec.clear();
                 assert_eq!(3, write_time(hour, minute, second, &mut vec).unwrap());
                 let time = TimeOnly::from_slice(&vec).unwrap();

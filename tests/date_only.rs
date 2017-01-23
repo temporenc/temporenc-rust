@@ -25,7 +25,7 @@ fn deser_date_none_missing() {
 #[test]
 fn deser_date_wrong_tag() {
     let bytes = &[0xAF, 0xFF, 0xFF];
-    assert_eq!(DeserializationError::WrongTag, DateOnly::from_slice(bytes).unwrap_err());
+    assert_eq!(DeserializationError::IncorrectTypeTag, DateOnly::from_slice(bytes).unwrap_err());
 }
 
 #[test]
@@ -39,8 +39,8 @@ fn date_roundtrip() {
     let mut vec = Vec::new();
 
     for year in once(None).chain((YEAR_MIN..(YEAR_MAX + 1)).map(|y| Some(y))) {
-        for month in once(None).chain((MONTH_MIN..(MONTH_MAX + 1)).map(|y| Some(y))) {
-            for day in once(None).chain((DAY_MIN..(DAY_MAX + 1)).map(|y| Some(y))) {
+        for month in once(None).chain((MONTH_MIN..(MONTH_MAX + 1)).map(|m| Some(m))) {
+            for day in once(None).chain((DAY_MIN..(DAY_MAX + 1)).map(|d| Some(d))) {
                 vec.clear();
                 assert_eq!(3, write_date(year, month, day, &mut vec).unwrap());
                 let date = DateOnly::from_slice(&vec).unwrap();
