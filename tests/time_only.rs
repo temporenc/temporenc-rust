@@ -7,8 +7,8 @@ use std::iter::once;
 
 #[test]
 fn deser_time_all_missing() {
-    let bytes = &[0xA1, 0xFF, 0xFF];
-    let t = TimeOnly::from_slice(bytes).unwrap();
+    let bytes = vec!(0xA1, 0xFF, 0xFF);
+    let t = TimeOnly::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(None, t.hour());
     assert_eq!(None, t.minute());
     assert_eq!(None, t.second());
@@ -16,8 +16,8 @@ fn deser_time_all_missing() {
 
 #[test]
 fn deser_time_none_missing() {
-    let bytes = &[0xA1, 0x26, 0x4C];
-    let t = TimeOnly::from_slice(bytes).unwrap();
+    let bytes = vec!(0xA1, 0x26, 0x4C);
+    let t = TimeOnly::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(Some(18), t.hour());
     assert_eq!(Some(25), t.minute());
     assert_eq!(Some(12), t.second());
@@ -25,14 +25,14 @@ fn deser_time_none_missing() {
 
 #[test]
 fn deser_time_wrong_tag() {
-    let bytes = &[0xA3, 0xFF, 0xFF];
-    assert_eq!(DeserializationError::IncorrectTypeTag, TimeOnly::from_slice(bytes).unwrap_err());
+    let bytes = vec!(0xA3, 0xFF, 0xFF);
+    assert_eq!(DeserializationError::IncorrectTypeTag, TimeOnly::deserialize(bytes.as_slice()).unwrap_err());
 }
 
 #[test]
 fn deser_time_too_short() {
-    let bytes = &[0xAF, 0xFF];
-    assert_eq!(DeserializationError::EarlyEOF, TimeOnly::from_slice(bytes).unwrap_err());
+    let bytes = vec!(0xA1, 0xFF);
+    assert_eq!(DeserializationError::EarlyEOF, TimeOnly::deserialize(bytes.as_slice()).unwrap_err());
 }
 
 #[test]
@@ -43,8 +43,8 @@ fn time_roundtrip() {
         for minute in once(None).chain((MINUTE_MIN..(MINUTE_MAX + 1)).map(|m| Some(m))) {
             for second in once(None).chain((SECOND_MIN..(SECOND_MAX + 1)).map(|s| Some(s))) {
                 vec.clear();
-                assert_eq!(3, write_time(hour, minute, second, &mut vec).unwrap());
-                let time = TimeOnly::from_slice(&vec).unwrap();
+                assert_eq!(3, TimeOnly::serialize(hour, minute, second, &mut vec).unwrap());
+                let time = TimeOnly::deserialize(vec.as_slice()).unwrap();
 
                 assert_eq!(hour, time.hour());
                 assert_eq!(minute, time.minute());
