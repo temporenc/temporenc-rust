@@ -32,7 +32,7 @@ fn deser_time_wrong_tag() {
 #[test]
 fn deser_time_too_short() {
     let bytes = &[0xAF, 0xFF];
-    assert_eq!(DeserializationError::InputTooShort, TimeOnly::from_slice(bytes).unwrap_err());
+    assert_eq!(DeserializationError::EarlyEOF, TimeOnly::from_slice(bytes).unwrap_err());
 }
 
 #[test]

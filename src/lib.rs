@@ -1,4 +1,5 @@
-use std::io::Write;
+use std::io::{Read, Write, Bytes};
+use std::iter::Iterator;
 
 pub trait Date {
     /// If present, the year. In range [0, 4094].
@@ -46,86 +47,94 @@ pub enum OffsetData {
 }
 
 #[derive(Debug)]
-pub struct DateOnly<'a> {
-    // 3-bit tag, 12-bit year, 4-bit month, 5-bit day
-    // TTTY YYYY YYYY YYYM MMMD DDDD
-    data: &'a [u8]
+pub struct DateOnly {
+    year: Option<u16>,
+    month: Option<u8>,
+    day: Option<u8>
 }
 
-pub fn write_date<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>, writer: &mut W)
-                            -> Result<usize, SerializationError> {
-    check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
-    check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
-    check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
+impl DateOnly {
+    pub fn deserialize<R: Read>(reader: R) -> Result<DateOnly, DeserializationError> {
+        let mut bytes = reader.bytes();
+        let byte0 = next_byte(&mut bytes)?;
 
-    let year_num = year.unwrap_or(YEAR_RAW_NONE);
-    let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
-    let day_num = day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE);
-
-    let b1 = DATE_TAG | ((year_num >> 7) as u8);
-    let mut bytes_written = write_map_err(b1, writer)?;
-    let b2 = ((year_num << 1) as u8) | (month_num >> 3);
-    bytes_written += write_map_err(b2, writer)?;
-    let b3 = (month_num << 5) | day_num;
-    bytes_written += write_map_err(b3, writer)?;
-
-    Ok(bytes_written)
-}
-
-impl<'a> DateOnly<'a> {
-    pub fn from_slice(slice: &[u8]) -> Result<DateOnly, DeserializationError> {
-        if slice.len() < DATE_LEN {
-            return Err(DeserializationError::InputTooShort);
-        }
-
-        if !TypeTag::DateOnly.matches(slice[0]) {
+        if !TypeTag::DateOnly.matches(byte0) {
             return Err(DeserializationError::IncorrectTypeTag);
         }
 
+        // 3-bit tag, 12-bit year, 4-bit month, 5-bit day
+        // TTTY YYYY YYYY YYYM MMMD DDDD
+
+        // bits 4-15
+        let mut raw_year = ((byte0 & 0x1F) as u16) << 7;
+        let byte1 = next_byte(&mut bytes)?;
+        raw_year |= (byte1 as u16) >> 1;
+
+        let year = if raw_year == YEAR_RAW_NONE {
+            None
+        } else {
+            Some(raw_year)
+        };
+
+        // bits 16-19
+        let mut raw_month = (byte1 & 0x01) << 3;
+        let byte2 = next_byte(&mut bytes)?;
+        raw_month |= (byte2 & 0xE0) >> 5;
+
+        let month = if raw_month == MONTH_RAW_NONE {
+            None
+        } else {
+            Some(raw_month + 1)
+        };
+
+        // bits 20-24
+        let raw_day = byte2 & 0x1F;
+
+        let day = if raw_day == DAY_RAW_NONE {
+            None
+        } else {
+            Some(raw_day + 1)
+        };
+
         Ok(DateOnly {
-            data: &slice[0..DATE_LEN]
+            year: year,
+            month: month,
+            day: day
         })
     }
 
-    pub fn serialize<W: Write>(&self, mut writer: W) -> std::io::Result<usize> {
-        writer.write_all(self.data).map(|_| self.data.len())
+    pub fn serialize<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>, writer: &mut W)
+                                -> Result<usize, SerializationError> {
+        check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
+        check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
+        check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
+
+        let year_num = year.unwrap_or(YEAR_RAW_NONE);
+        let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
+        let day_num = day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE);
+
+        let b1 = DATE_TAG | ((year_num >> 7) as u8);
+        let mut bytes_written = write_map_err(b1, writer)?;
+        let b2 = ((year_num << 1) as u8) | (month_num >> 3);
+        bytes_written += write_map_err(b2, writer)?;
+        let b3 = (month_num << 5) | day_num;
+        bytes_written += write_map_err(b3, writer)?;
+
+        Ok(bytes_written)
     }
 }
 
-impl<'a> Date for DateOnly<'a> {
+impl Date for DateOnly {
     fn year(&self) -> Option<u16> {
-        // bits 4-15
-        let mut year = ((self.data[0] & 0x1F) as u16) << 7;
-        year |= (self.data[1] as u16) >> 1;
-
-        if year == YEAR_RAW_NONE {
-            None
-        } else {
-            Some(year)
-        }
+        self.year
     }
 
     fn month(&self) -> Option<u8> {
-        // bits 16-19
-        let mut month = (self.data[1] & 0x01) << 3;
-        month |= (self.data[2] & 0xE0) >> 5;
-
-        if month == MONTH_RAW_NONE {
-            None
-        } else {
-            Some(month + 1)
-        }
+       self.month
     }
 
     fn day(&self) -> Option<u8> {
-        // bits 20-24
-        let day = self.data[2] & 0x1F;
-
-        if day == DAY_RAW_NONE {
-            None
-        } else {
-            Some(day + 1)
-        }
+       self.day
     }
 }
 
@@ -159,7 +168,7 @@ pub fn write_time<W: Write>(hour: Option<u8>, minute: Option<u8>, second: Option
 impl<'a> TimeOnly<'a> {
     pub fn from_slice(slice: &[u8]) -> Result<TimeOnly, DeserializationError> {
         if slice.len() < TIME_LEN {
-            return Err(DeserializationError::InputTooShort);
+            return Err(DeserializationError::EarlyEOF);
         }
 
         if !TypeTag::TimeOnly.matches(slice[0]) {
@@ -289,7 +298,7 @@ pub fn write_date_time_subsecond<W: Write>(year: Option<u16>, month: Option<u8>,
 impl<'a> DateTimeSecond<'a> {
     pub fn from_slice(slice: &[u8]) -> Result<DateTimeSecond, DeserializationError> {
         if slice.len() < 1 {
-            return Err(DeserializationError::InputTooShort);
+            return Err(DeserializationError::EarlyEOF);
         }
 
         let first_byte = slice[0];
@@ -322,7 +331,7 @@ impl<'a> DateTimeSecond<'a> {
         }
 
         if slice.len() < len {
-            return Err(DeserializationError::InputTooShort);
+            return Err(DeserializationError::EarlyEOF);
         }
 
         Ok(DateTimeSecond {
@@ -473,7 +482,8 @@ enum PrecisionTag {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DeserializationError {
-    InputTooShort,
+    IoError,
+    EarlyEOF,
     IncorrectTypeTag,
     IncorrectPrecisionTag
 }
@@ -547,6 +557,11 @@ pub const MICROS_MAX: u32 = 1_000_000;
 pub const NANOS_MIN: u32 = 0;
 pub const NANOS_MAX: u32 = 1_000_000_000;
 
+fn next_byte<S: Sized + Read>(bytes: &mut Bytes<S>) -> Result<u8, DeserializationError> {
+    bytes.next()
+        .map(|r| r.map_err(|_| DeserializationError::IoError))
+        .unwrap_or(Err(DeserializationError::EarlyEOF))
+}
 
 fn write_map_err<W: Write>(byte: u8, writer: &mut W) -> Result<usize, SerializationError> {
     writer.write(&[byte]).map_err(|_| SerializationError::IoError)
