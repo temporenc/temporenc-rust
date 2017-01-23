@@ -27,7 +27,7 @@ pub enum FractionalSecond {
     Milliseconds(u16),
     Microseconds(u32),
     Nanoseconds(u32),
-    NoValue
+    None
 }
 
 pub trait Offset {
@@ -54,9 +54,9 @@ pub struct DateOnly<'a> {
 
 pub fn write_date<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>, writer: &mut W)
                             -> Result<usize, SerializationError> {
-    check_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
-    check_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
-    check_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
+    check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
+    check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
+    check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
 
     let year_num = year.unwrap_or(YEAR_RAW_NONE);
     let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
@@ -108,9 +108,7 @@ impl<'a> Date for DateOnly<'a> {
     fn month(&self) -> Option<u8> {
         // bits 16-19
         let mut month = (self.data[1] & 0x01) << 3;
-        //        println!("month: {:02x}", month);
         month |= (self.data[2] & 0xE0) >> 5;
-        //        println!("month: {:02x}", month);
 
         if month == MONTH_RAW_NONE {
             None
@@ -140,9 +138,9 @@ pub struct TimeOnly<'a> {
 
 pub fn write_time<W: Write>(hour: Option<u8>, minute: Option<u8>, second: Option<u8>, writer: &mut W)
                             -> Result<usize, SerializationError> {
-    check_outside_range(hour, HOUR_MIN, HOUR_MAX, TemporalField::Hour)?;
-    check_outside_range(minute, MINUTE_MIN, MINUTE_MAX, TemporalField::Minute)?;
-    check_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
+    check_option_outside_range(hour, HOUR_MIN, HOUR_MAX, TemporalField::Hour)?;
+    check_option_outside_range(minute, MINUTE_MIN, MINUTE_MAX, TemporalField::Minute)?;
+    check_option_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
 
     let hour_num = hour.unwrap_or(HOUR_RAW_NONE);
     let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
@@ -224,16 +222,33 @@ pub struct DateTimeSecond<'a> {
     precision: PrecisionTag
 }
 
+// TODO ref for fractional second
 pub fn write_date_time_subsecond<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
                                            hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
-                                           writer: &mut W)
+                                           fractional_second: &FractionalSecond, writer: &mut W)
                                            -> Result<usize, SerializationError> {
-    check_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
-    check_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
-    check_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
-    check_outside_range(hour, HOUR_MIN, HOUR_MAX, TemporalField::Hour)?;
-    check_outside_range(minute, MINUTE_MIN, MINUTE_MAX, TemporalField::Minute)?;
-    check_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
+    check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
+    check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
+    check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
+    check_option_outside_range(hour, HOUR_MIN, HOUR_MAX, TemporalField::Hour)?;
+    check_option_outside_range(minute, MINUTE_MIN, MINUTE_MAX, TemporalField::Minute)?;
+    check_option_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
+
+    let (precision_tag, first_subsecond_byte_fragment) = match fractional_second {
+        &FractionalSecond::None => (PRECISION_DTS_NONE_TAG, 0x0),
+        &FractionalSecond::Milliseconds(ms) => {
+            check_outside_range(ms, MILLIS_MIN, MILLIS_MAX, TemporalField::FractionalSecond)?;
+            (PRECISION_DTS_MILLIS_TAG, (ms >> 4) as u8)
+        },
+        &FractionalSecond::Microseconds(us) => {
+            check_outside_range(us, MICROS_MIN, MICROS_MAX, TemporalField::FractionalSecond)?;
+            (PRECISION_DTS_MICROS_TAG, (us >> 14) as u8)
+        },
+        &FractionalSecond::Nanoseconds(ns) => {
+            check_outside_range(ns, NANOS_MIN, NANOS_MAX, TemporalField::FractionalSecond)?;
+            (PRECISION_DTS_NANOS_TAG, (ns >> 24) as u8)
+        }
+    };
 
     let year_num = year.unwrap_or(YEAR_RAW_NONE);
     let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
@@ -242,9 +257,33 @@ pub fn write_date_time_subsecond<W: Write>(year: Option<u16>, month: Option<u8>,
     let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
     let second_num = second.unwrap_or(SECOND_RAW_NONE);
 
-    // TODO
+    let mut bytes_written = write_map_err(DATE_TIME_SUBSECOND_TAG | precision_tag | (year_num >> 8) as u8,
+                                          writer)?;
+    bytes_written += write_map_err(year_num as u8, writer)?;
+    bytes_written += write_map_err((month_num << 4) | (day_num >> 1), writer)?;
+    bytes_written += write_map_err((day_num << 7) | (hour_num << 2) | (minute_num >> 4),
+                                   writer)?;
+    bytes_written += write_map_err((minute_num << 4) | (second_num >> 2), writer)?;
+    bytes_written += write_map_err((second_num << 6) | first_subsecond_byte_fragment, writer)?;
 
-    Ok(0)
+    // write variable length fractinoal second
+    match fractional_second {
+        &FractionalSecond::None => {},
+        &FractionalSecond::Milliseconds(ms) => {
+            bytes_written += write_map_err((ms << 4) as u8, writer)?;
+        },
+        &FractionalSecond::Microseconds(us) => {
+            bytes_written += write_map_err((us >> 6) as u8, writer)?;
+            bytes_written += write_map_err((us << 2) as u8, writer)?;
+        },
+        &FractionalSecond::Nanoseconds(ns) => {
+            bytes_written += write_map_err((ns >> 16) as u8, writer)?;
+            bytes_written += write_map_err((ns >> 8) as u8, writer)?;
+            bytes_written += write_map_err(ns as u8, writer)?;
+        }
+    }
+
+    Ok(bytes_written)
 }
 
 impl<'a> DateTimeSecond<'a> {
@@ -261,20 +300,20 @@ impl<'a> DateTimeSecond<'a> {
         let precision;
         let len;
         match first_byte & 0x30 {
-            0 => {
+            PRECISION_DTS_MILLIS_TAG => {
                 precision = PrecisionTag::Milli;
                 len = 7;
             }
-            0b0001_0000 => {
+            PRECISION_DTS_MICROS_TAG => {
                 precision = PrecisionTag::Micro;
                 len = 8;
             }
-            0b0010_0000 => {
+            PRECISION_DTS_NANOS_TAG => {
                 precision = PrecisionTag::Nano;
                 len = 9;
             }
-            0b0011_0000 => {
-                precision = PrecisionTag::NoValue;
+            PRECISION_DTS_NONE_TAG => {
+                precision = PrecisionTag::None;
                 len = 6;
             }
             _ => {
@@ -368,7 +407,7 @@ impl<'a> Time for DateTimeSecond<'a> {
 impl<'a> SubSecond for DateTimeSecond<'a> {
     fn fractional_second(&self) -> FractionalSecond {
         match self.precision {
-            PrecisionTag::NoValue => FractionalSecond::NoValue,
+            PrecisionTag::None => FractionalSecond::None,
             PrecisionTag::Milli => {
                 // bits 44-52
                 let mut ms = ((self.data[5] & 0x3F) as u16) << 4;
@@ -429,7 +468,7 @@ enum PrecisionTag {
     Milli,
     Micro,
     Nano,
-    NoValue
+    None
 }
 
 #[derive(Debug, PartialEq)]
@@ -441,7 +480,7 @@ pub enum DeserializationError {
 
 #[derive(Debug, PartialEq)]
 pub enum SerializationError {
-    FieldOutOfRange(TemporalField),
+    FieldValueOutOfRange(TemporalField),
     IoError
 }
 
@@ -453,13 +492,11 @@ pub enum TemporalField {
     Hour,
     Minute,
     Second,
-    Millisecond,
-    Microsecond,
-    Nanosecond,
+    FractionalSecond,
     Offset
 }
 
-// tags, expanded to include the rest of the byte
+// type tags, expanded to include the rest of the byte
 // 3 bits
 const DATE_TAG: u8 = 0b1000_0000;
 // 7 bits
@@ -472,6 +509,12 @@ const DATE_TIME_OFFSET_TAG: u8 = 0b1100_0000;
 const DATE_TIME_SUBSECOND_TAG: u8 = 0b0100_0000;
 // 3 bits
 const DATE_TIME_SUBSECOND_OFFSET_TAG: u8 = 0b1110_0000;
+
+// precision tags: 2 bits in positions 3 and 4, expanded into a byte, as it would be in a DTS
+const PRECISION_DTS_MILLIS_TAG: u8 = 0x0;
+const PRECISION_DTS_MICROS_TAG: u8 = 0b0001_0000;
+const PRECISION_DTS_NANOS_TAG: u8 = 0b0010_0000;
+const PRECISION_DTS_NONE_TAG: u8 = 0b0011_0000;
 
 const DATE_LEN: usize = 3;
 const TIME_LEN: usize = 3;
@@ -497,17 +540,31 @@ pub const MINUTE_MIN: u8 = 0;
 pub const MINUTE_MAX: u8 = 60;
 pub const SECOND_MIN: u8 = 0;
 pub const SECOND_MAX: u8 = 60;
+pub const MILLIS_MIN: u16 = 0;
+pub const MILLIS_MAX: u16 = 1_000;
+pub const MICROS_MIN: u32 = 0;
+pub const MICROS_MAX: u32 = 1_000_000;
+pub const NANOS_MIN: u32 = 0;
+pub const NANOS_MAX: u32 = 1_000_000_000;
+
 
 fn write_map_err<W: Write>(byte: u8, writer: &mut W) -> Result<usize, SerializationError> {
     writer.write(&[byte]).map_err(|_| SerializationError::IoError)
 }
 
-fn check_outside_range<T: PartialOrd>(val: Option<T>, min: T, max: T, field: TemporalField)
-                                      -> Result<(), SerializationError> {
+fn check_option_outside_range<T: PartialOrd>(val: Option<T>, min: T, max: T, field: TemporalField)
+                                             -> Result<(), SerializationError> {
     if let Some(v) = val {
-        if v < min || v > max {
-            return Err(SerializationError::FieldOutOfRange(field))
-        }
+        check_outside_range(v, min, max, field)?;
+    }
+
+    Ok(())
+}
+
+fn check_outside_range<T: PartialOrd>(v: T, min: T, max: T, field: TemporalField)
+                                      -> Result<(), SerializationError> {
+    if v < min || v > max {
+        return Err(SerializationError::FieldValueOutOfRange(field))
     }
 
     Ok(())

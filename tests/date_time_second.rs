@@ -18,7 +18,7 @@ fn deser_dts_all_missing() {
     assert_eq!(None, d.hour());
     assert_eq!(None, d.minute());
     assert_eq!(None, d.second());
-    assert_eq!(FractionalSecond::NoValue, d.fractional_second());
+    assert_eq!(FractionalSecond::None, d.fractional_second());
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn deser_dts_all_no_subsec() {
     assert_eq!(Some(18), d.hour());
     assert_eq!(Some(25), d.minute());
     assert_eq!(Some(12), d.second());
-    assert_eq!(FractionalSecond::NoValue, d.fractional_second());
+    assert_eq!(FractionalSecond::None, d.fractional_second());
 }
 
 
@@ -75,31 +75,53 @@ fn deser_dts_all_ns() {
 }
 
 #[test]
-fn roundtrip_dts_random() {
+fn roundtrip_dts_all_random() {
     let mut vec = Vec::new();
 
-    let rounds = 10;
+    let rounds = 6;
 
-    for year in once(None).chain(range_iter(YEAR_MIN, YEAR_MAX + 1).take(rounds).map(|y| Some(y))) {
-        for month in once(None).chain(range_iter(MONTH_MIN, MONTH_MAX + 1).take(rounds).map(|m| Some(m))) {
-            for day in once(None).chain(range_iter(DAY_MIN, DAY_MAX + 1).take(rounds).map(|d| Some(d))) {
-                for hour in once(None).chain(range_iter(HOUR_MIN, HOUR_MAX + 1).take(rounds).map(|h| Some(h))) {
-                    for minute in once(None).chain(range_iter(MINUTE_MIN, MINUTE_MAX + 1).take(rounds).map(|m| Some(m))) {
-                        for second in once(None).chain(range_iter(SECOND_MIN, SECOND_MAX + 1).take(rounds).map(|s| Some(s))) {
-                            vec.clear();
-                            assert_eq!(3, write_date_time_subsecond(year, month, day, hour, minute,
-                                                                    second, &mut vec).unwrap());
-                            let dts = DateTimeSecond::from_slice(&vec).unwrap();
+    // try a whole bunch of random values, plus the None value, in each field
 
-                            assert_eq!(year, dts.year());
-                            assert_eq!(month, dts.month());
-                            assert_eq!(day, dts.day());
+    for year in once(None).chain(range_iter(YEAR_MIN, YEAR_MAX + 1)
+        .take(rounds).map(|y| Some(y))) {
+        for month in once(None).chain(range_iter(MONTH_MIN, MONTH_MAX + 1)
+            .take(rounds).map(|m| Some(m))) {
+            for day in once(None).chain(range_iter(DAY_MIN, DAY_MAX + 1)
+                .take(rounds).map(|d| Some(d))) {
+                for hour in once(None).chain(range_iter(HOUR_MIN, HOUR_MAX + 1)
+                    .take(rounds).map(|h| Some(h))) {
+                    for minute in once(None).chain(range_iter(MINUTE_MIN, MINUTE_MAX + 1)
+                        .take(rounds).map(|m| Some(m))) {
+                        for second in once(None).chain(range_iter(SECOND_MIN, SECOND_MAX + 1)
+                            .take(rounds).map(|s| Some(s))) {
+                            for frac_second in once(FractionalSecond::None)
+                                .chain(range_iter(MILLIS_MIN, MILLIS_MAX + 1).take(rounds).map(|s| FractionalSecond::Milliseconds(s)))
+                                .chain(range_iter(MICROS_MIN, MICROS_MAX + 1).take(rounds).map(|s| FractionalSecond::Microseconds(s)))
+                                .chain(range_iter(NANOS_MIN, NANOS_MAX + 1).take(rounds).map(|s| FractionalSecond::Nanoseconds(s)))
+                                {
+                                    let expected_length = match frac_second {
+                                        FractionalSecond::Milliseconds(_) => 7,
+                                        FractionalSecond::Microseconds(_) => 8,
+                                        FractionalSecond::Nanoseconds(_) => 9,
+                                        FractionalSecond::None => 6,
+                                    };
 
-                            assert_eq!(hour, dts.hour());
-                            assert_eq!(minute, dts.minute());
-                            assert_eq!(second, dts.second());
+                                    vec.clear();
+                                    assert_eq!(expected_length, write_date_time_subsecond(
+                                        year, month, day, hour, minute, second, &frac_second,
+                                        &mut vec).unwrap());
+                                    let dts = DateTimeSecond::from_slice(&vec).unwrap();
 
+                                    assert_eq!(year, dts.year());
+                                    assert_eq!(month, dts.month());
+                                    assert_eq!(day, dts.day());
 
+                                    assert_eq!(hour, dts.hour());
+                                    assert_eq!(minute, dts.minute());
+                                    assert_eq!(second, dts.second());
+
+                                    assert_eq!(frac_second, dts.fractional_second());
+                                }
                         };
                     };
                 }
