@@ -99,34 +99,71 @@ fn roundtrip_dts_all_random() {
                                 .chain(range_iter(MICROS_MIN, MICROS_MAX + 1).take(rounds).map(|s| FractionalSecond::Microseconds(s)))
                                 .chain(range_iter(NANOS_MIN, NANOS_MAX + 1).take(rounds).map(|s| FractionalSecond::Nanoseconds(s)))
                                 {
-                                    let expected_length = match frac_second {
-                                        FractionalSecond::Milliseconds(_) => 7,
-                                        FractionalSecond::Microseconds(_) => 8,
-                                        FractionalSecond::Nanoseconds(_) => 9,
-                                        FractionalSecond::None => 6,
-                                    };
-
-                                    vec.clear();
-                                    assert_eq!(expected_length, write_date_time_subsecond(
-                                        year, month, day, hour, minute, second, &frac_second,
-                                        &mut vec).unwrap());
-                                    let dts = DateTimeSecond::from_slice(&vec).unwrap();
-
-                                    assert_eq!(year, dts.year());
-                                    assert_eq!(month, dts.month());
-                                    assert_eq!(day, dts.day());
-
-                                    assert_eq!(hour, dts.hour());
-                                    assert_eq!(minute, dts.minute());
-                                    assert_eq!(second, dts.second());
-
-                                    assert_eq!(frac_second, dts.fractional_second());
+                                    serialize_and_check(year, month, day, hour, minute, second, frac_second, &mut vec);
                                 }
                         };
                     };
                 }
             };
         };
+    }
+}
+
+#[test]
+fn roundtrip_dts_all_year_month_day() {
+    let mut vec = Vec::new();
+
+    let hour = Some(4);
+    let minute = Some(5);
+    let second = Some(6);
+    let frac_second = FractionalSecond::Milliseconds(7);
+
+    for year in once(None).chain((YEAR_MIN..(YEAR_MAX + 1)).map(|y| Some(y))) {
+        for month in once(None).chain((MONTH_MIN..(MONTH_MAX + 1)).map(|m| Some(m))) {
+            for day in once(None).chain((DAY_MIN..(DAY_MAX + 1)).map(|d| Some(d))) {
+                serialize_and_check(year, month, day, hour, minute, second, frac_second, &mut vec);
+            }
+        }
+    }
+}
+
+#[test]
+fn roundtrip_dts_all_hour_minute_second() {
+    let mut vec = Vec::new();
+
+    let year = Some(8);
+    let month = Some(9);
+    let day = Some(10);
+    let frac_second = FractionalSecond::Microseconds(987654);
+
+    for hour in once(None).chain((HOUR_MIN..(HOUR_MAX + 1)).map(|h| Some(h))) {
+        for minute in once(None).chain((MINUTE_MIN..(MINUTE_MAX + 1)).map(|m| Some(m))) {
+            for second in once(None).chain((SECOND_MIN..(SECOND_MAX + 1)).map(|s| Some(s))) {
+                serialize_and_check(year, month, day, hour, minute, second, frac_second, &mut vec);
+            }
+        }
+    }
+}
+
+
+#[test]
+fn roundtrip_dts_random_fractional() {
+    let mut vec = Vec::new();
+
+    let year = Some(8);
+    let month = Some(9);
+    let day = Some(10);
+    let hour = Some(11);
+    let minute = Some(12);
+    let second = Some(13);
+
+    let rounds = 50_000;
+
+    for frac_second in once(FractionalSecond::None)
+        .chain(range_iter(MILLIS_MIN, MILLIS_MAX + 1).take(rounds).map(|s| FractionalSecond::Milliseconds(s)))
+        .chain(range_iter(MICROS_MIN, MICROS_MAX + 1).take(rounds).map(|s| FractionalSecond::Microseconds(s)))
+        .chain(range_iter(NANOS_MIN, NANOS_MAX + 1).take(rounds).map(|s| FractionalSecond::Nanoseconds(s))) {
+        serialize_and_check(year, month, day, hour, minute, second, frac_second, &mut vec);
     }
 }
 
@@ -149,4 +186,34 @@ impl<T: PartialOrd + SampleRange + Copy, R: Rng> Iterator for RngRangeIterator<T
     fn next(&mut self) -> Option<T> {
         Some(self.rng.gen_range(self.low, self.high))
     }
+}
+
+fn dts_encoded_length(frac_second: FractionalSecond) -> usize {
+    match frac_second {
+        FractionalSecond::Milliseconds(_) => 7,
+        FractionalSecond::Microseconds(_) => 8,
+        FractionalSecond::Nanoseconds(_) => 9,
+        FractionalSecond::None => 6,
+    }
+}
+
+fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
+                       minute: Option<u8>, second: Option<u8>, frac_second: FractionalSecond,
+                       vec: &mut Vec<u8>) {
+    let expected_length = dts_encoded_length(frac_second);
+
+    vec.clear();
+    assert_eq!(expected_length,
+    write_date_time_subsecond(year, month, day, hour, minute, second, frac_second, vec).unwrap());
+    let dts = DateTimeSecond::from_slice(&vec).unwrap();
+
+    assert_eq!(year, dts.year());
+    assert_eq!(month, dts.month());
+    assert_eq!(day, dts.day());
+
+    assert_eq!(hour, dts.hour());
+    assert_eq!(minute, dts.minute());
+    assert_eq!(second, dts.second());
+
+    assert_eq!(frac_second, dts.fractional_second());
 }

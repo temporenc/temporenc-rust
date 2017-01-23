@@ -22,7 +22,7 @@ pub trait SubSecond {
     fn fractional_second(&self) -> FractionalSecond;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FractionalSecond {
     Milliseconds(u16),
     Microseconds(u32),
@@ -225,7 +225,7 @@ pub struct DateTimeSecond<'a> {
 // TODO ref for fractional second
 pub fn write_date_time_subsecond<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
                                            hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
-                                           fractional_second: &FractionalSecond, writer: &mut W)
+                                           fractional_second: FractionalSecond, writer: &mut W)
                                            -> Result<usize, SerializationError> {
     check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
     check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
@@ -235,16 +235,16 @@ pub fn write_date_time_subsecond<W: Write>(year: Option<u16>, month: Option<u8>,
     check_option_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
 
     let (precision_tag, first_subsecond_byte_fragment) = match fractional_second {
-        &FractionalSecond::None => (PRECISION_DTS_NONE_TAG, 0x0),
-        &FractionalSecond::Milliseconds(ms) => {
+        FractionalSecond::None => (PRECISION_DTS_NONE_TAG, 0x0),
+        FractionalSecond::Milliseconds(ms) => {
             check_outside_range(ms, MILLIS_MIN, MILLIS_MAX, TemporalField::FractionalSecond)?;
             (PRECISION_DTS_MILLIS_TAG, (ms >> 4) as u8)
         },
-        &FractionalSecond::Microseconds(us) => {
+        FractionalSecond::Microseconds(us) => {
             check_outside_range(us, MICROS_MIN, MICROS_MAX, TemporalField::FractionalSecond)?;
             (PRECISION_DTS_MICROS_TAG, (us >> 14) as u8)
         },
-        &FractionalSecond::Nanoseconds(ns) => {
+        FractionalSecond::Nanoseconds(ns) => {
             check_outside_range(ns, NANOS_MIN, NANOS_MAX, TemporalField::FractionalSecond)?;
             (PRECISION_DTS_NANOS_TAG, (ns >> 24) as u8)
         }
@@ -268,15 +268,15 @@ pub fn write_date_time_subsecond<W: Write>(year: Option<u16>, month: Option<u8>,
 
     // write variable length fractinoal second
     match fractional_second {
-        &FractionalSecond::None => {},
-        &FractionalSecond::Milliseconds(ms) => {
+        FractionalSecond::None => {},
+        FractionalSecond::Milliseconds(ms) => {
             bytes_written += write_map_err((ms << 4) as u8, writer)?;
         },
-        &FractionalSecond::Microseconds(us) => {
+        FractionalSecond::Microseconds(us) => {
             bytes_written += write_map_err((us >> 6) as u8, writer)?;
             bytes_written += write_map_err((us << 2) as u8, writer)?;
         },
-        &FractionalSecond::Nanoseconds(ns) => {
+        FractionalSecond::Nanoseconds(ns) => {
             bytes_written += write_map_err((ns >> 16) as u8, writer)?;
             bytes_written += write_map_err((ns >> 8) as u8, writer)?;
             bytes_written += write_map_err(ns as u8, writer)?;
@@ -463,7 +463,7 @@ impl TypeTag {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 enum PrecisionTag {
     Milli,
     Micro,
@@ -471,20 +471,20 @@ enum PrecisionTag {
     None
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum DeserializationError {
     InputTooShort,
     IncorrectTypeTag,
     IncorrectPrecisionTag
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum SerializationError {
     FieldValueOutOfRange(TemporalField),
     IoError
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TemporalField {
     Year,
     Month,
