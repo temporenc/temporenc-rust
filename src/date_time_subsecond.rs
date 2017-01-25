@@ -32,9 +32,9 @@ impl DateTimeSubSecond {
         };
 
         // 2-bit tag, 2-bit subsecond precision tag, 12-bit year, 4-bit month, 5-bit day, 5-bit hour,
-        // 6-bit minute, 6-bit second, and 0, 10, 20, or 30-bit subsecond value (as V in bit diagram)
+        // 6-bit minute, 6-bit second, and 0, 10, 20, or 30-bit fractional second
         // TTPP YYYY | YYYY YYYY | MMMM DDDD | DHHH HHMM
-        // MMMM SSSS | SSVV VVVV | [0, 1, 2, or 3 subsecond bytes]
+        // MMMM SSSS | SSFF FFFF | [0, 1, 2, or 3 subsecond bytes]
 
         // bits 5-16
         let byte1 = next_byte(&mut bytes)?;
@@ -60,7 +60,6 @@ impl DateTimeSubSecond {
         // bits 21-25
         let byte3 = next_byte(&mut bytes)?;
         let raw_day = ((byte2 & 0x0F) << 1) | (byte3 >> 7);
-
         let day = if raw_day == DAY_RAW_NONE {
             None
         } else {
@@ -69,7 +68,6 @@ impl DateTimeSubSecond {
 
         // bits 26-30
         let raw_hour = (byte3 & 0x7C) >> 2;
-
         let hour = if raw_hour == HOUR_RAW_NONE {
             None
         } else {
@@ -78,8 +76,7 @@ impl DateTimeSubSecond {
 
         // bits 31-36
         let byte4 = next_byte(&mut bytes)?;
-        let raw_minute = ((byte3 & 0x03) << 4) | ((byte4 & 0xF0) >> 4);
-
+        let raw_minute = ((byte3 & 0x03) << 4) | (byte4 >> 4);
         let minute = if raw_minute == MINUTE_RAW_NONE {
             None
         } else {
@@ -109,7 +106,7 @@ impl DateTimeSubSecond {
                 // bits 43-62
                 let mut us = ((byte5 & 0x3F) as u32) << 14;
                 us |= (next_byte(&mut bytes)? as u32) << 6;
-                us |= ((next_byte(&mut bytes)? & 0xFC) >> 2) as u32;
+                us |= (next_byte(&mut bytes)? >> 2) as u32;
 
                 FractionalSecond::Microseconds(us)
             }
@@ -135,10 +132,10 @@ impl DateTimeSubSecond {
         })
     }
 
-    pub fn serialize<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
-                               hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
-                               fractional_second: FractionalSecond, writer: &mut W)
-                               -> Result<usize, SerializationError> {
+    pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
+                                          hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
+                                          fractional_second: FractionalSecond, writer: &mut W)
+                                            -> Result<usize, SerializationError> {
         check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
         check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
         check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
@@ -178,7 +175,7 @@ impl DateTimeSubSecond {
         bytes_written += write_map_err((minute_num << 4) | (second_num >> 2), writer)?;
         bytes_written += write_map_err((second_num << 6) | first_subsecond_byte_fragment, writer)?;
 
-        // write variable length fractinoal second
+        // write variable length fractional second
         match fractional_second {
             FractionalSecond::None => {},
             FractionalSecond::Milliseconds(ms) => {
@@ -197,6 +194,12 @@ impl DateTimeSubSecond {
 
         Ok(bytes_written)
     }
+
+    pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
+        Self::serialize_components(self.year, self.month, self.day, self.hour, self.minute, self.second,
+                              self.frac_second, writer)
+    }
+
 }
 
 impl Date for DateTimeSubSecond {

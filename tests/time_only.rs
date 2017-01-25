@@ -8,19 +8,27 @@ use std::iter::once;
 #[test]
 fn deser_time_all_missing() {
     let bytes = vec!(0xA1, 0xFF, 0xFF);
-    let t = TimeOnly::deserialize(bytes.as_slice()).unwrap();
-    assert_eq!(None, t.hour());
-    assert_eq!(None, t.minute());
-    assert_eq!(None, t.second());
+    let d = TimeOnly::deserialize(bytes.as_slice()).unwrap();
+    assert_eq!(None, d.hour());
+    assert_eq!(None, d.minute());
+    assert_eq!(None, d.second());
+
+    let mut serialized = Vec::new();
+    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(bytes, serialized);
 }
 
 #[test]
 fn deser_time_none_missing() {
     let bytes = vec!(0xA1, 0x26, 0x4C);
-    let t = TimeOnly::deserialize(bytes.as_slice()).unwrap();
-    assert_eq!(Some(18), t.hour());
-    assert_eq!(Some(25), t.minute());
-    assert_eq!(Some(12), t.second());
+    let d = TimeOnly::deserialize(bytes.as_slice()).unwrap();
+    assert_eq!(Some(18), d.hour());
+    assert_eq!(Some(25), d.minute());
+    assert_eq!(Some(12), d.second());
+
+    let mut serialized = Vec::new();
+    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(bytes, serialized);
 }
 
 #[test]
@@ -43,7 +51,7 @@ fn time_roundtrip() {
         for minute in once(None).chain((MINUTE_MIN..(MINUTE_MAX + 1)).map(|m| Some(m))) {
             for second in once(None).chain((SECOND_MIN..(SECOND_MAX + 1)).map(|s| Some(s))) {
                 vec.clear();
-                assert_eq!(3, TimeOnly::serialize(hour, minute, second, &mut vec).unwrap());
+                assert_eq!(3, TimeOnly::serialize_components(hour, minute, second, &mut vec).unwrap());
                 let time = TimeOnly::deserialize(vec.as_slice()).unwrap();
 
                 assert_eq!(hour, time.hour());

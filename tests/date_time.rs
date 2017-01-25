@@ -1,8 +1,11 @@
 extern crate temporenc;
+extern crate rand;
 
-use temporenc::*;
+mod common;
 
 use std::iter::once;
+use temporenc::*;
+use common::RandomFieldSource;
 
 #[test]
 fn deser_dt_all_missing() {
@@ -14,6 +17,10 @@ fn deser_dt_all_missing() {
     assert_eq!(None, d.hour());
     assert_eq!(None, d.month());
     assert_eq!(None, d.second());
+
+    let mut serialized = Vec::new();
+    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(bytes, serialized);
 }
 
 #[test]
@@ -26,6 +33,10 @@ fn deser_dt_none_missing() {
     assert_eq!(Some(18), d.hour());
     assert_eq!(Some(25), d.minute());
     assert_eq!(Some(12), d.second());
+
+    let mut serialized = Vec::new();
+    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(bytes, serialized);
 }
 
 #[test]
@@ -77,10 +88,27 @@ fn roundtrip_dt_all_hour_minute_second() {
     }
 }
 
+#[test]
+fn roundtrip_dt_all_random() {
+    let mut vec = Vec::new();
+
+    let mut random_fields = RandomFieldSource::new(rand::weak_rng());
+
+    for _ in 0..1_000_000 {
+        let year = random_fields.year();
+        let month = random_fields.month();
+        let day = random_fields.day();
+        let hour = random_fields.hour();
+        let minute = random_fields.minute();
+        let second = random_fields.second();
+        serialize_and_check(year, month, day, hour, minute, second, &mut vec);
+    }
+}
+
 fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
                        minute: Option<u8>, second: Option<u8>, vec: &mut Vec<u8>) {
     vec.clear();
-    assert_eq!(5, DateTime::serialize(year, month, day, hour, minute, second, vec).unwrap());
+    assert_eq!(5, DateTime::serialize_components(year, month, day, hour, minute, second, vec).unwrap());
     let dt = DateTime::deserialize(vec.as_slice()).unwrap();
 
     assert_eq!(year, dt.year());

@@ -99,10 +99,10 @@ impl DateTimeOffset {
         })
     }
 
-    pub fn serialize<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
-                               hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
-                               offset: OffsetValue, writer: &mut W)
-                               -> Result<usize, SerializationError> {
+    pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
+                                          hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
+                                          offset: OffsetValue, writer: &mut W)
+                                            -> Result<usize, SerializationError> {
         check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
         check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
         check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
@@ -110,19 +110,7 @@ impl DateTimeOffset {
         check_option_outside_range(minute, MINUTE_MIN, MINUTE_MAX, TemporalField::Minute)?;
         check_option_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
 
-        let offset_num: u8 = match offset {
-            OffsetValue::None => OFFSET_RAW_NONE,
-            OffsetValue::SpecifiedElsewhere => OFFSET_RAW_ELSEWHERE,
-            OffsetValue::UtcOffset(o) => {
-                check_outside_range(o, OFFSET_MIN, OFFSET_MAX, TemporalField::Offset)?;
-
-                if o % 15 != 0 {
-                    return Err(SerializationError::InvalidFieldValue(TemporalField::Offset));
-                };
-
-                ((o / 15) + 64) as u8
-            }
-        };
+        let offset_num = encode_offset_num(offset)?;
 
         let year_num = year.unwrap_or(YEAR_RAW_NONE);
         let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
@@ -141,8 +129,12 @@ impl DateTimeOffset {
         Ok(bytes_written)
     }
 
-}
 
+    pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
+        Self::serialize_components(self.year, self.month, self.day, self.hour, self.minute,
+                                   self.second, self.offset, writer)
+    }
+}
 
 impl Date for DateTimeOffset {
     fn year(&self) -> Option<u16> {
@@ -175,5 +167,21 @@ impl Time for DateTimeOffset {
 impl Offset for DateTimeOffset {
     fn offset(&self) -> OffsetValue {
         self.offset
+    }
+}
+
+pub fn encode_offset_num(offset: OffsetValue) -> Result<u8, SerializationError> {
+    match offset {
+        OffsetValue::None => Ok(OFFSET_RAW_NONE),
+        OffsetValue::SpecifiedElsewhere => Ok(OFFSET_RAW_ELSEWHERE),
+        OffsetValue::UtcOffset(o) => {
+            check_outside_range(o, OFFSET_MIN, OFFSET_MAX, TemporalField::Offset)?;
+
+            if o % 15 != 0 {
+                return Err(SerializationError::InvalidFieldValue(TemporalField::Offset));
+            };
+
+            Ok(((o / 15) + 64) as u8)
+        }
     }
 }

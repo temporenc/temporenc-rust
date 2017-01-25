@@ -50,14 +50,14 @@ mod time_only;
 mod date_time;
 mod date_time_offset;
 mod date_time_subsecond;
+mod date_time_subsecond_offset;
 
 pub use date_only::DateOnly;
 pub use time_only::TimeOnly;
 pub use date_time::DateTime;
 pub use date_time_offset::DateTimeOffset;
 pub use date_time_subsecond::DateTimeSubSecond;
-
-pub struct DateTimeSecondOffset {}
+pub use date_time_subsecond_offset::DateTimeSubSecondOffset;
 
 enum TypeTag {
     DateOnly,
@@ -138,6 +138,13 @@ const PRECISION_DTS_MILLIS_TAG: u8 = 0x0;
 const PRECISION_DTS_MICROS_TAG: u8 = 0b0001_0000;
 const PRECISION_DTS_NANOS_TAG: u8 = 0b0010_0000;
 const PRECISION_DTS_NONE_TAG: u8 = 0b0011_0000;
+
+// precision tags: 2 bits in positions 3 and 4, expanded into a byte, as it would be in a DTSO
+const PRECISION_DTSO_MASK: u8 = PRECISION_DTS_MASK >> 1;
+const PRECISION_DTSO_MILLIS_TAG: u8 = PRECISION_DTS_MILLIS_TAG >> 1;
+const PRECISION_DTSO_MICROS_TAG: u8 = PRECISION_DTS_MICROS_TAG >> 1;
+const PRECISION_DTSO_NANOS_TAG: u8 = PRECISION_DTS_NANOS_TAG >> 1;
+const PRECISION_DTSO_NONE_TAG: u8 = PRECISION_DTS_NONE_TAG >> 1;
 
 // encoded forms of "no value"
 const YEAR_RAW_NONE: u16 = 4095;

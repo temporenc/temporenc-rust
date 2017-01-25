@@ -1,4 +1,5 @@
 extern crate temporenc;
+extern crate rand;
 
 mod common;
 
@@ -6,11 +7,11 @@ use std::iter::once;
 
 use temporenc::*;
 
-use common::range_iter;
+use common::RandomFieldSource;
 
 #[test]
 fn deser_dts_all_missing() {
-    let bytes = vec!(0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
+    let bytes = vec!(0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xC0);
     let d = DateTimeSubSecond::deserialize(bytes.as_slice()).unwrap();
     assert_eq!(None, d.year());
     assert_eq!(None, d.month());
@@ -19,6 +20,10 @@ fn deser_dts_all_missing() {
     assert_eq!(None, d.minute());
     assert_eq!(None, d.second());
     assert_eq!(FractionalSecond::None, d.fractional_second());
+
+    let mut serialized = Vec::new();
+    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(bytes, serialized);
 }
 
 #[test]
@@ -32,6 +37,10 @@ fn deser_dts_all_no_subsec() {
     assert_eq!(Some(25), d.minute());
     assert_eq!(Some(12), d.second());
     assert_eq!(FractionalSecond::None, d.fractional_second());
+
+    let mut serialized = Vec::new();
+    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(bytes, serialized);
 }
 
 
@@ -46,6 +55,10 @@ fn deser_dts_all_ms() {
     assert_eq!(Some(25), d.minute());
     assert_eq!(Some(12), d.second());
     assert_eq!(FractionalSecond::Milliseconds(123), d.fractional_second());
+
+    let mut serialized = Vec::new();
+    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(bytes, serialized);
 }
 
 #[test]
@@ -59,6 +72,10 @@ fn deser_dts_all_us() {
     assert_eq!(Some(25), d.minute());
     assert_eq!(Some(12), d.second());
     assert_eq!(FractionalSecond::Microseconds(123456), d.fractional_second());
+
+    let mut serialized = Vec::new();
+    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(bytes, serialized);
 }
 
 #[test]
@@ -72,55 +89,25 @@ fn deser_dts_all_ns() {
     assert_eq!(Some(25), d.minute());
     assert_eq!(Some(12), d.second());
     assert_eq!(FractionalSecond::Nanoseconds(123456789), d.fractional_second());
-}
 
-#[test]
-fn roundtrip_dts_all_random() {
-    let mut vec = Vec::new();
-
-    let rounds = 5;
-
-    // try a whole bunch of random values, plus the None value, in each field
-
-    for year in once(None).chain(range_iter(YEAR_MIN, YEAR_MAX + 1)
-        .take(rounds).map(|y| Some(y))) {
-        for month in once(None).chain(range_iter(MONTH_MIN, MONTH_MAX + 1)
-            .take(rounds).map(|m| Some(m))) {
-            for day in once(None).chain(range_iter(DAY_MIN, DAY_MAX + 1)
-                .take(rounds).map(|d| Some(d))) {
-                for hour in once(None).chain(range_iter(HOUR_MIN, HOUR_MAX + 1)
-                    .take(rounds).map(|h| Some(h))) {
-                    for minute in once(None).chain(range_iter(MINUTE_MIN, MINUTE_MAX + 1)
-                        .take(rounds).map(|m| Some(m))) {
-                        for second in once(None).chain(range_iter(SECOND_MIN, SECOND_MAX + 1)
-                            .take(rounds).map(|s| Some(s))) {
-                            for frac_second in once(FractionalSecond::None)
-                                .chain(range_iter(MILLIS_MIN, MILLIS_MAX + 1).take(rounds).map(|s| FractionalSecond::Milliseconds(s)))
-                                .chain(range_iter(MICROS_MIN, MICROS_MAX + 1).take(rounds).map(|s| FractionalSecond::Microseconds(s)))
-                                .chain(range_iter(NANOS_MIN, NANOS_MAX + 1).take(rounds).map(|s| FractionalSecond::Nanoseconds(s)))
-                                {
-                                    serialize_and_check(year, month, day, hour, minute, second, frac_second, &mut vec);
-                                }
-                        };
-                    };
-                }
-            };
-        };
-    }
+    let mut serialized = Vec::new();
+    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(bytes, serialized);
 }
 
 #[test]
 fn roundtrip_dts_all_year_month_day() {
     let mut vec = Vec::new();
-
-    let hour = Some(4);
-    let minute = Some(5);
-    let second = Some(6);
-    let frac_second = FractionalSecond::Milliseconds(7);
+    let mut random_fields = RandomFieldSource::new(rand::weak_rng());
 
     for year in once(None).chain((YEAR_MIN..(YEAR_MAX + 1)).map(|y| Some(y))) {
         for month in once(None).chain((MONTH_MIN..(MONTH_MAX + 1)).map(|m| Some(m))) {
             for day in once(None).chain((DAY_MIN..(DAY_MAX + 1)).map(|d| Some(d))) {
+                let hour = random_fields.hour();
+                let minute = random_fields.minute();
+                let second = random_fields.second();
+                let frac_second = random_fields.fractional_second();
+
                 serialize_and_check(year, month, day, hour, minute, second, frac_second, &mut vec);
             }
         }
@@ -130,11 +117,12 @@ fn roundtrip_dts_all_year_month_day() {
 #[test]
 fn roundtrip_dts_all_hour_minute_second() {
     let mut vec = Vec::new();
+    let mut random_fields = RandomFieldSource::new(rand::weak_rng());
 
-    let year = Some(8);
-    let month = Some(9);
-    let day = Some(10);
-    let frac_second = FractionalSecond::Microseconds(987654);
+    let year = random_fields.year();
+    let month = random_fields.month();
+    let day = random_fields.day();
+    let frac_second = random_fields.fractional_second();
 
     for hour in once(None).chain((HOUR_MIN..(HOUR_MAX + 1)).map(|h| Some(h))) {
         for minute in once(None).chain((MINUTE_MIN..(MINUTE_MAX + 1)).map(|m| Some(m))) {
@@ -145,25 +133,21 @@ fn roundtrip_dts_all_hour_minute_second() {
     }
 }
 
-
 #[test]
-fn roundtrip_dts_random_fractional() {
+fn roundtrip_dts_all_random() {
     let mut vec = Vec::new();
+    let mut random_fields = RandomFieldSource::new(rand::weak_rng());
 
-    let year = Some(8);
-    let month = Some(9);
-    let day = Some(10);
-    let hour = Some(11);
-    let minute = Some(12);
-    let second = Some(13);
-
-    let rounds = 200_000;
-
-    for frac_second in once(FractionalSecond::None)
-        .chain(range_iter(MILLIS_MIN, MILLIS_MAX + 1).take(rounds).map(|s| FractionalSecond::Milliseconds(s)))
-        .chain(range_iter(MICROS_MIN, MICROS_MAX + 1).take(rounds).map(|s| FractionalSecond::Microseconds(s)))
-        .chain(range_iter(NANOS_MIN, NANOS_MAX + 1).take(rounds).map(|s| FractionalSecond::Nanoseconds(s))) {
-        serialize_and_check(year, month, day, hour, minute, second, frac_second, &mut vec);
+    for _ in 0..1_000_000 {
+        let year = random_fields.year();
+        let month = random_fields.month();
+        let day = random_fields.day();
+        let hour = random_fields.hour();
+        let minute = random_fields.minute();
+        let second = random_fields.second();
+        let fractional_second = random_fields.fractional_second();
+        serialize_and_check(year, month, day, hour, minute, second,
+                            fractional_second, &mut vec);
     }
 }
 
@@ -183,7 +167,8 @@ fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, ho
 
     vec.clear();
     assert_eq!(expected_length,
-        DateTimeSubSecond::serialize(year, month, day, hour, minute, second, frac_second, vec).unwrap());
+        DateTimeSubSecond::serialize_components(year, month, day, hour, minute, second, frac_second,
+                                                vec).unwrap());
     let dts = DateTimeSubSecond::deserialize(vec.as_slice()).unwrap();
 
     assert_eq!(year, dts.year());

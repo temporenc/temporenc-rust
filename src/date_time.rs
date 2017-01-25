@@ -88,10 +88,9 @@ impl DateTime {
         })
     }
 
-    pub fn serialize<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
-                               hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
-                               writer: &mut W)
-                               -> Result<usize, SerializationError> {
+    pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
+                                          hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
+                                          writer: &mut W) -> Result<usize, SerializationError> {
         check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
         check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
         check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
@@ -113,6 +112,11 @@ impl DateTime {
         bytes_written += write_map_err((minute_num << 6) | second_num, writer)?;
 
         Ok(bytes_written)
+    }
+
+    pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
+        Self::serialize_components(self.year, self.month, self.day, self.hour, self.minute, self.second,
+                              writer)
     }
 }
 

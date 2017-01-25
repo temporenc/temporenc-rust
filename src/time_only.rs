@@ -57,8 +57,8 @@ impl TimeOnly {
         })
     }
 
-    pub fn serialize<W: Write>(hour: Option<u8>, minute: Option<u8>, second: Option<u8>, writer: &mut W)
-                               -> Result<usize, SerializationError> {
+    pub fn serialize_components<W: Write>(hour: Option<u8>, minute: Option<u8>, second: Option<u8>, writer: &mut W)
+                                      -> Result<usize, SerializationError> {
         check_option_outside_range(hour, HOUR_MIN, HOUR_MAX, TemporalField::Hour)?;
         check_option_outside_range(minute, MINUTE_MIN, MINUTE_MAX, TemporalField::Minute)?;
         check_option_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
@@ -75,6 +75,10 @@ impl TimeOnly {
         bytes_written += write_map_err(b3, writer)?;
 
         Ok(bytes_written)
+    }
+
+    pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
+        Self::serialize_components(self.hour, self.minute, self.second, writer)
     }
 }
 
