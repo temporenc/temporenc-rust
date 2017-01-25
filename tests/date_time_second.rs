@@ -1,12 +1,12 @@
 extern crate temporenc;
-extern crate rand;
+
+mod common;
+
+use std::iter::once;
 
 use temporenc::*;
 
-use self::rand::Rng;
-use self::rand::distributions::range::SampleRange;
-
-use std::iter::once;
+use common::range_iter;
 
 #[test]
 fn deser_dts_all_missing() {
@@ -164,27 +164,6 @@ fn roundtrip_dts_random_fractional() {
         .chain(range_iter(MICROS_MIN, MICROS_MAX + 1).take(rounds).map(|s| FractionalSecond::Microseconds(s)))
         .chain(range_iter(NANOS_MIN, NANOS_MAX + 1).take(rounds).map(|s| FractionalSecond::Nanoseconds(s))) {
         serialize_and_check(year, month, day, hour, minute, second, frac_second, &mut vec);
-    }
-}
-
-fn range_iter<T: PartialOrd + SampleRange + Copy>(low: T, high: T) -> RngRangeIterator<T, self::rand::XorShiftRng> {
-    RngRangeIterator {
-        low: low,
-        high: high,
-        rng: rand::weak_rng()
-    }
-}
-
-struct RngRangeIterator<T: PartialOrd + SampleRange + Copy, R: Rng> {
-    low: T,
-    high: T,
-    rng: R
-}
-
-impl<T: PartialOrd + SampleRange + Copy, R: Rng> Iterator for RngRangeIterator<T, R> {
-    type Item = T;
-    fn next(&mut self) -> Option<T> {
-        Some(self.rng.gen_range(self.low, self.high))
     }
 }
 

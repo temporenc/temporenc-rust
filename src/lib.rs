@@ -32,18 +32,17 @@ pub enum FractionalSecond {
 }
 
 pub trait Offset {
-    /// UTC offset, if specified.
-    /// The offset may be "elsewhere", meaning that this temporal value
-    /// is not at UTC but the timezone is not specified here, or it may
-    /// be specified as the number of 15-minute increments away from UTC
-    /// plus 64 (to make it always positive). Thus, UTC would be 64 and
-    /// UTC+2:00 would be 64 + 8 = 72.
-    fn offset(&self) -> Option<OffsetData>;
+    fn offset(&self) -> OffsetValue;
 }
 
-pub enum OffsetData {
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum OffsetValue {
+    /// Offset not specified.
+    None,
+    /// Temporal value is not at UTC, but the timezone is not specified here
     SpecifiedElsewhere,
-    UtcOffset(u8)
+    /// Temporal value is offset from UTC by the specified number of minutes
+    UtcOffset(i16)
 }
 
 #[derive(Debug)]
@@ -161,7 +160,6 @@ impl TimeOnly {
         let mut raw_hour = byte0 << 4;
         let byte1 = next_byte(&mut bytes)?;
         raw_hour |= (byte1 & 0xF0) >> 4;
-
         let hour = if raw_hour == HOUR_RAW_NONE {
             None
         } else {
@@ -172,7 +170,6 @@ impl TimeOnly {
         let mut raw_minute = (byte1 & 0x0F) << 2;
         let byte2 = next_byte(&mut bytes)?;
         raw_minute |= (byte2 & 0xC0) >> 6;
-
         let minute = if raw_minute == MINUTE_RAW_NONE {
             None
         } else {
@@ -181,7 +178,6 @@ impl TimeOnly {
 
         // bits 19-24
         let raw_second = byte2 & 0x3F;
-
         let second = if raw_second == SECOND_RAW_NONE {
             None
         } else {
@@ -248,16 +244,6 @@ impl DateTime {
         if !TypeTag::DateTime.matches(byte0) {
             return Err(DeserializationError::IncorrectTypeTag);
         }
-
-        let precision = match byte0 & PRECISION_DTS_MASK {
-            PRECISION_DTS_MILLIS_TAG => PrecisionTag::Milli,
-            PRECISION_DTS_MICROS_TAG => PrecisionTag::Micro,
-            PRECISION_DTS_NANOS_TAG => PrecisionTag::Nano,
-            PRECISION_DTS_NONE_TAG => PrecisionTag::None,
-            _ => {
-                return Err(DeserializationError::IncorrectPrecisionTag);
-            }
-        };
 
         // 2-bit tag, 12-bit year, 4-bit month, 5-bit day, 5-bit hour, 6-bit minute, 6-bit second
         // TTYY YYYY | YYYY YYMM | MMDD DDDH | HHHH MMMM | MMSS SSSS
@@ -381,7 +367,180 @@ impl Time for DateTime {
     }
 }
 
-pub struct DateTimeOffset {}
+#[derive(Debug)]
+pub struct DateTimeOffset {
+    year: Option<u16>,
+    month: Option<u8>,
+    day: Option<u8>,
+    hour: Option<u8>,
+    minute: Option<u8>,
+    second: Option<u8>,
+    offset: OffsetValue
+}
+
+impl DateTimeOffset {
+    pub fn deserialize<R: Read>(reader: R) -> Result<DateTimeOffset, DeserializationError> {
+        let mut bytes = reader.bytes();
+        let byte0 = next_byte(&mut bytes)?;
+
+        if !TypeTag::DateTimeOffset.matches(byte0) {
+            return Err(DeserializationError::IncorrectTypeTag);
+        }
+
+        // 3-bit tag, 12-bit year, 4-bit month, 5-bit day, 5-bit hour, 6-bit minute, 6-bit second,
+        // 7-bit offset
+        // TTTY YYYY | YYYY YYYM | MMMD DDDD | HHHH HMMM | MMMS SSSS | SOOO OOOO
+
+        // bits 4-15
+        let mut raw_year = ((byte0 & 0x1F) as u16) << 7;
+        let byte1 = next_byte(&mut bytes)?;
+        raw_year |= (byte1 as u16) >> 1;
+        let year = if raw_year == YEAR_RAW_NONE {
+            None
+        } else {
+            Some(raw_year)
+        };
+
+        // bits 16-19
+        let byte2 = next_byte(&mut bytes)?;
+        let raw_month = ((byte1 & 0x01) << 3) | ((byte2 & 0xE0) >> 5);
+        let month = if raw_month == MONTH_RAW_NONE {
+            None
+        } else {
+            Some(raw_month + 1)
+        };
+
+        // bits 20-24
+        let raw_day = byte2 & 0x1F;
+        let day = if raw_day == DAY_RAW_NONE {
+            None
+        } else {
+            Some(raw_day + 1)
+        };
+
+        // bits 25-29
+        let byte3 = next_byte(&mut bytes)?;
+        let raw_hour = byte3 >> 3;
+        let hour = if raw_hour == HOUR_RAW_NONE {
+            None
+        } else {
+            Some(raw_hour)
+        };
+
+        // bits 30-35
+        let byte4 = next_byte(&mut bytes)?;
+        let raw_minute = ((byte3 & 0x07) << 3) | (byte4 >> 5);
+        let minute = if raw_minute == MINUTE_RAW_NONE {
+            None
+        } else {
+            Some(raw_minute)
+        };
+
+        // bits 36-41
+        let byte5 = next_byte(&mut bytes)?;
+        let raw_second = (byte4 & 0x1F) << 1 | (byte5 >> 7);
+        let second = if raw_second == SECOND_RAW_NONE {
+            None
+        } else {
+            Some(raw_second)
+        };
+
+        let raw_offset = byte5 & 0x7F;
+        let offset = match raw_offset {
+            127 => OffsetValue::None,
+            126 => OffsetValue::SpecifiedElsewhere,
+            x => OffsetValue::UtcOffset(((x as i16) - 64) * 15)
+        };
+
+        Ok(DateTimeOffset {
+            year: year,
+            month: month,
+            day: day,
+            hour: hour,
+            minute: minute,
+            second: second,
+            offset: offset
+        })
+    }
+
+    pub fn serialize<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
+                               hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
+                               offset: OffsetValue, writer: &mut W)
+                               -> Result<usize, SerializationError> {
+        check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
+        check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
+        check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
+        check_option_outside_range(hour, HOUR_MIN, HOUR_MAX, TemporalField::Hour)?;
+        check_option_outside_range(minute, MINUTE_MIN, MINUTE_MAX, TemporalField::Minute)?;
+        check_option_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
+
+        let offset_num: u8 = match offset {
+            OffsetValue::None => OFFSET_RAW_NONE,
+            OffsetValue::SpecifiedElsewhere => OFFSET_RAW_ELSEWHERE,
+            OffsetValue::UtcOffset(o) => {
+                check_outside_range(o, OFFSET_MIN, OFFSET_MAX, TemporalField::Offset)?;
+
+                if o % 15 != 0 {
+                    return Err(SerializationError::InvalidFieldValue(TemporalField::Offset));
+                };
+
+                ((o / 15) + 64) as u8
+            }
+        };
+
+        let year_num = year.unwrap_or(YEAR_RAW_NONE);
+        let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
+        let day_num = day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE);
+        let hour_num = hour.unwrap_or(HOUR_RAW_NONE);
+        let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
+        let second_num = second.unwrap_or(SECOND_RAW_NONE);
+
+        let mut bytes_written = write_map_err(DATE_TIME_OFFSET_TAG | (year_num >> 7) as u8, writer)?;
+        bytes_written += write_map_err(((year_num << 1) as u8) | (month_num >> 3), writer)?;
+        bytes_written += write_map_err((month_num << 5) | day_num, writer)?;
+        bytes_written += write_map_err((hour_num << 3) | (minute_num >> 3), writer)?;
+        bytes_written += write_map_err((minute_num << 5) | (second_num >> 1), writer)?;
+        bytes_written += write_map_err((second_num << 7) | offset_num, writer)?;
+
+        Ok(bytes_written)
+    }
+
+}
+
+
+impl Date for DateTimeOffset {
+    fn year(&self) -> Option<u16> {
+        self.year
+    }
+
+    fn month(&self) -> Option<u8> {
+        self.month
+    }
+
+    fn day(&self) -> Option<u8> {
+        self.day
+    }
+}
+
+impl Time for DateTimeOffset {
+    fn hour(&self) -> Option<u8> {
+        self.hour
+    }
+
+    fn minute(&self) -> Option<u8> {
+        self.minute
+    }
+
+    fn second(&self) -> Option<u8> {
+        self.second
+    }
+}
+
+impl Offset for DateTimeOffset {
+    fn offset(&self) -> OffsetValue {
+        self.offset
+    }
+}
 
 pub struct DateTimeSubSecond {
     year: Option<u16>,
@@ -659,7 +818,7 @@ pub enum DeserializationError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SerializationError {
-    FieldValueOutOfRange(TemporalField),
+    InvalidFieldValue(TemporalField),
     IoError
 }
 
@@ -696,9 +855,6 @@ const PRECISION_DTS_MICROS_TAG: u8 = 0b0001_0000;
 const PRECISION_DTS_NANOS_TAG: u8 = 0b0010_0000;
 const PRECISION_DTS_NONE_TAG: u8 = 0b0011_0000;
 
-const DATE_LEN: usize = 3;
-const TIME_LEN: usize = 3;
-
 // encoded forms of "no value"
 const YEAR_RAW_NONE: u16 = 4095;
 const MONTH_RAW_NONE: u8 = 15;
@@ -706,6 +862,8 @@ const DAY_RAW_NONE: u8 = 31;
 const HOUR_RAW_NONE: u8 = 31;
 const MINUTE_RAW_NONE: u8 = 63;
 const SECOND_RAW_NONE: u8 = 63;
+const OFFSET_RAW_NONE: u8 = 127;
+const OFFSET_RAW_ELSEWHERE: u8 = 126;
 
 // human-visible range ends (not necessarily internal encoding)
 pub const YEAR_MIN: u16 = 0;
@@ -726,6 +884,8 @@ pub const MICROS_MIN: u32 = 0;
 pub const MICROS_MAX: u32 = 1_000_000;
 pub const NANOS_MIN: u32 = 0;
 pub const NANOS_MAX: u32 = 1_000_000_000;
+pub const OFFSET_MIN: i16 = -(64 * 15);
+pub const OFFSET_MAX: i16 = (125 - 64) * 15;
 
 fn next_byte<S: Sized + Read>(bytes: &mut Bytes<S>) -> Result<u8, DeserializationError> {
     bytes.next()
@@ -749,7 +909,7 @@ fn check_option_outside_range<T: PartialOrd>(val: Option<T>, min: T, max: T, fie
 fn check_outside_range<T: PartialOrd>(v: T, min: T, max: T, field: TemporalField)
                                       -> Result<(), SerializationError> {
     if v < min || v > max {
-        return Err(SerializationError::FieldValueOutOfRange(field))
+        return Err(SerializationError::InvalidFieldValue(field))
     }
 
     Ok(())
