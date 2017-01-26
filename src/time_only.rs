@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Time, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_map_err, TypeTag, TemporalField, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
+use super::{Serializable, Time, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_map_err, TypeTag, TemporalField, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -93,5 +93,15 @@ impl Time for TimeOnly {
 
     fn second(&self) -> Option<u8> {
         self.second
+    }
+}
+
+impl Serializable for TimeOnly {
+    fn max_serialized_size() -> usize {
+        3
+    }
+
+    fn serialized_size(&self) -> usize {
+        Self::max_serialized_size()
     }
 }

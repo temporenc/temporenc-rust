@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Date, Time, Offset, DeserializationError, SerializationError, next_byte, check_option_outside_range, check_outside_range, write_map_err, TypeTag, TemporalField, OffsetValue, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, OFFSET_MAX, OFFSET_MIN, DATE_TIME_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, OFFSET_RAW_NONE, OFFSET_RAW_ELSEWHERE};
+use super::{Serializable, Date, Time, Offset, DeserializationError, SerializationError, next_byte, check_option_outside_range, check_outside_range, write_map_err, TypeTag, TemporalField, OffsetValue, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, OFFSET_MAX, OFFSET_MIN, DATE_TIME_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, OFFSET_RAW_NONE, OFFSET_RAW_ELSEWHERE};
 
 
 #[derive(Debug)]
@@ -183,5 +183,15 @@ pub fn encode_offset_num(offset: OffsetValue) -> Result<u8, SerializationError> 
 
             Ok(((o / 15) + 64) as u8)
         }
+    }
+}
+
+impl Serializable for DateTimeOffset {
+    fn max_serialized_size() -> usize {
+        6
+    }
+
+    fn serialized_size(&self) -> usize {
+        Self::max_serialized_size()
     }
 }

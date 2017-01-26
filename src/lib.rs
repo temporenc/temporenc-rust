@@ -1,6 +1,13 @@
 use std::io::{Read, Write, Bytes};
 use std::iter::Iterator;
 
+pub trait Serializable {
+    /// The largest encoded size of any instance of the type
+    fn max_serialized_size() -> usize;
+    /// The encoded size of this instance
+    fn serialized_size(&self) -> usize;
+}
+
 pub trait Date {
     /// If present, the year. In range [0, 4094].
     fn year(&self) -> Option<u16>;

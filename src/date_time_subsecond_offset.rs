@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Date, Time, SubSecond, Offset, DeserializationError, SerializationError, next_byte, check_option_outside_range, check_outside_range, write_map_err, TypeTag, TemporalField, OffsetValue, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTSO_MASK, PRECISION_DTSO_MILLIS_TAG, PRECISION_DTSO_MICROS_TAG, PRECISION_DTSO_NANOS_TAG, PRECISION_DTSO_NONE_TAG};
+use super::{Serializable, Date, Time, SubSecond, Offset, DeserializationError, SerializationError, next_byte, check_option_outside_range, check_outside_range, write_map_err, TypeTag, TemporalField, OffsetValue, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTSO_MASK, PRECISION_DTSO_MILLIS_TAG, PRECISION_DTSO_MICROS_TAG, PRECISION_DTSO_NANOS_TAG, PRECISION_DTSO_NONE_TAG};
 
 use super::date_time_offset::encode_offset_num;
 
@@ -261,5 +261,20 @@ impl SubSecond for DateTimeSubSecondOffset {
 impl Offset for DateTimeSubSecondOffset {
     fn offset(&self) -> OffsetValue {
         self.offset
+    }
+}
+
+impl Serializable for DateTimeSubSecondOffset {
+    fn max_serialized_size() -> usize {
+        10
+    }
+
+    fn serialized_size(&self) -> usize {
+        match self.frac_second {
+            FractionalSecond::Milliseconds(_) => 8,
+            FractionalSecond::Microseconds(_) => 9,
+            FractionalSecond::Nanoseconds(_) => 10,
+            FractionalSecond::None => 7,
+        }
     }
 }

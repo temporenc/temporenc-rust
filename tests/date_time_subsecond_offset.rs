@@ -157,7 +157,7 @@ fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, ho
                        minute: Option<u8>, second: Option<u8>, frac_second: FractionalSecond,
                        offset: OffsetValue, vec: &mut Vec<u8>) {
     vec.clear();
-    assert_eq!(dtso_encoded_length(frac_second),
+    assert_eq!(dtso_serialized_length(frac_second),
         DateTimeSubSecondOffset::serialize_components(year, month, day, hour, minute, second, frac_second,
                                                  offset, vec).unwrap());
     let dt = DateTimeSubSecondOffset::deserialize(vec.as_slice()).unwrap();
@@ -174,7 +174,7 @@ fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, ho
 }
 
 
-fn dtso_encoded_length(frac_second: FractionalSecond) -> usize {
+fn dtso_serialized_length(frac_second: FractionalSecond) -> usize {
     match frac_second {
         FractionalSecond::Milliseconds(_) => 8,
         FractionalSecond::Microseconds(_) => 9,

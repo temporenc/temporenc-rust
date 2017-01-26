@@ -151,7 +151,7 @@ fn roundtrip_dts_all_random() {
     }
 }
 
-fn dts_encoded_length(frac_second: FractionalSecond) -> usize {
+fn dts_serialized_length(frac_second: FractionalSecond) -> usize {
     match frac_second {
         FractionalSecond::Milliseconds(_) => 7,
         FractionalSecond::Microseconds(_) => 8,
@@ -163,7 +163,7 @@ fn dts_encoded_length(frac_second: FractionalSecond) -> usize {
 fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
                        minute: Option<u8>, second: Option<u8>, frac_second: FractionalSecond,
                        vec: &mut Vec<u8>) {
-    let expected_length = dts_encoded_length(frac_second);
+    let expected_length = dts_serialized_length(frac_second);
 
     vec.clear();
     assert_eq!(expected_length,

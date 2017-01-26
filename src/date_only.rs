@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Date, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, DATE_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE};
+use super::{Date, Serializable, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, DATE_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -96,5 +96,15 @@ impl Date for DateOnly {
 
     fn day(&self) -> Option<u8> {
         self.day
+    }
+}
+
+impl Serializable for DateOnly {
+    fn max_serialized_size() -> usize {
+        3
+    }
+
+    fn serialized_size(&self) -> usize {
+        Self::max_serialized_size()
     }
 }

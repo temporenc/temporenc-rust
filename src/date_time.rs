@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Date, Time, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
+use super::{Serializable, Date, Time, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -145,5 +145,15 @@ impl Time for DateTime {
 
     fn second(&self) -> Option<u8> {
         self.second
+    }
+}
+
+impl Serializable for DateTime {
+    fn max_serialized_size() -> usize {
+        5
+    }
+
+    fn serialized_size(&self) -> usize {
+        Self::max_serialized_size()
     }
 }
