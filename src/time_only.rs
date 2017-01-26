@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Time, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_map_err, TypeTag, TemporalField, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
+use super::{Serializable, Time, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -67,14 +67,11 @@ impl TimeOnly {
         let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
         let second_num = second.unwrap_or(SECOND_RAW_NONE);
 
-        let b1 = TIME_TAG | hour_num >> 4;
-        let mut bytes_written = write_map_err(b1, writer)?;
-        let b2 = (hour_num << 4) | (minute_num >> 2);
-        bytes_written += write_map_err(b2, writer)?;
-        let b3 = (minute_num << 6) | (second_num);
-        bytes_written += write_map_err(b3, writer)?;
+        let b0 = TIME_TAG | hour_num >> 4;
+        let b1 = (hour_num << 4) | (minute_num >> 2);
+        let b2 = (minute_num << 6) | (second_num);
 
-        Ok(bytes_written)
+        write_array_map_err(&[b0, b1, b2], writer)
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {

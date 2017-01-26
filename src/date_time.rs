@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
+use super::{Serializable, Date, Time, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -105,13 +105,13 @@ impl DateTime {
         let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
         let second_num = second.unwrap_or(SECOND_RAW_NONE);
 
-        let mut bytes_written = write_map_err(DATE_TIME_TAG | (year_num >> 6) as u8, writer)?;
-        bytes_written += write_map_err(((year_num << 2) as u8) | (month_num >> 2), writer)?;
-        bytes_written += write_map_err((month_num << 6) | (day_num << 1) | (hour_num >> 4), writer)?;
-        bytes_written += write_map_err((hour_num << 4) | (minute_num >> 2), writer)?;
-        bytes_written += write_map_err((minute_num << 6) | second_num, writer)?;
+        let b0 = DATE_TIME_TAG | (year_num >> 6) as u8;
+        let b1 = ((year_num << 2) as u8) | (month_num >> 2);
+        let b2 = (month_num << 6) | (day_num << 1) | (hour_num >> 4);
+        let b3 = (hour_num << 4) | (minute_num >> 2);
+        let b4 = (minute_num << 6) | second_num;
 
-        Ok(bytes_written)
+        write_array_map_err(&[b0, b1, b2, b3, b4], writer)
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {

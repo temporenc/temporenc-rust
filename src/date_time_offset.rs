@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, Offset, DeserializationError, SerializationError, next_byte, check_option_outside_range, check_outside_range, write_map_err, TypeTag, TemporalField, OffsetValue, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, OFFSET_MAX, OFFSET_MIN, DATE_TIME_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, OFFSET_RAW_NONE, OFFSET_RAW_ELSEWHERE};
+use super::{Serializable, Date, Time, Offset, DeserializationError, SerializationError, next_byte, check_option_outside_range, check_outside_range, write_array_map_err, TypeTag, TemporalField, OffsetValue, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, OFFSET_MAX, OFFSET_MIN, DATE_TIME_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, OFFSET_RAW_NONE, OFFSET_RAW_ELSEWHERE};
 
 
 #[derive(Debug)]
@@ -119,14 +119,14 @@ impl DateTimeOffset {
         let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
         let second_num = second.unwrap_or(SECOND_RAW_NONE);
 
-        let mut bytes_written = write_map_err(DATE_TIME_OFFSET_TAG | (year_num >> 7) as u8, writer)?;
-        bytes_written += write_map_err(((year_num << 1) as u8) | (month_num >> 3), writer)?;
-        bytes_written += write_map_err((month_num << 5) | day_num, writer)?;
-        bytes_written += write_map_err((hour_num << 3) | (minute_num >> 3), writer)?;
-        bytes_written += write_map_err((minute_num << 5) | (second_num >> 1), writer)?;
-        bytes_written += write_map_err((second_num << 7) | offset_num, writer)?;
+        let b0 = DATE_TIME_OFFSET_TAG | (year_num >> 7) as u8;
+        let b1 = ((year_num << 1) as u8) | (month_num >> 3);
+        let b2 = (month_num << 5) | day_num;
+        let b3 = (hour_num << 3) | (minute_num >> 3);
+        let b4 = (minute_num << 5) | (second_num >> 1);
+        let b5 = (second_num << 7) | offset_num;
 
-        Ok(bytes_written)
+        write_array_map_err(&[b0, b1, b2, b3, b4, b5], writer)
     }
 
 

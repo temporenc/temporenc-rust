@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, SubSecond, Offset, DeserializationError, SerializationError, next_byte, check_option_outside_range, check_outside_range, write_map_err, TypeTag, TemporalField, OffsetValue, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTSO_MASK, PRECISION_DTSO_MILLIS_TAG, PRECISION_DTSO_MICROS_TAG, PRECISION_DTSO_NANOS_TAG, PRECISION_DTSO_NONE_TAG};
+use super::{Serializable, Date, Time, SubSecond, Offset, DeserializationError, SerializationError, next_byte, check_option_outside_range, check_outside_range, write_array_map_err, TypeTag, TemporalField, OffsetValue, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTSO_MASK, PRECISION_DTSO_MILLIS_TAG, PRECISION_DTSO_MICROS_TAG, PRECISION_DTSO_NANOS_TAG, PRECISION_DTSO_NONE_TAG};
 
 use super::date_time_offset::encode_offset_num;
 
@@ -182,40 +182,43 @@ impl DateTimeSubSecondOffset {
         let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
         let second_num = second.unwrap_or(SECOND_RAW_NONE);
 
-        let mut bytes_written = write_map_err(
-            DATE_TIME_SUBSECOND_OFFSET_TAG | precision_tag | (year_num >> 9) as u8, writer)?;
-        bytes_written += write_map_err((year_num >> 1) as u8, writer)?;
-        bytes_written += write_map_err((year_num << 7) as u8 | (month_num << 3) | (day_num >> 2),
-                                       writer)?;
-        bytes_written += write_map_err((day_num << 6) | (hour_num << 1) | (minute_num >> 5),
-                                       writer)?;
-        bytes_written += write_map_err((minute_num << 3) | (second_num >> 3), writer)?;
-        bytes_written += write_map_err((second_num << 5) | first_var_length_byte_fragment, writer)?;
+        let b0 = DATE_TIME_SUBSECOND_OFFSET_TAG | precision_tag | (year_num >> 9) as u8;
+        let b1 = (year_num >> 1) as u8;
+        let b2 = (year_num << 7) as u8 | (month_num << 3) | (day_num >> 2);
+        let b3 = (day_num << 6) | (hour_num << 1) | (minute_num >> 5);
+        let b4 = (minute_num << 3) | (second_num >> 3);
+        let b5 = (second_num << 5) | first_var_length_byte_fragment;
+
+        let mut buf = [b0, b1, b2, b3, b4, b5, 0, 0, 0, 0];
 
         // write variable length fractional second
-        match fractional_second {
+        let slice_end_index = match fractional_second {
             FractionalSecond::None => {
                 // tail end of offset
-                bytes_written += write_map_err(offset_num << 6, writer)?;
+                buf[6] = offset_num << 6;
+                7
             },
             FractionalSecond::Milliseconds(ms) => {
-                bytes_written += write_map_err(((ms << 3) as u8) | (offset_num >> 4), writer)?;
-                bytes_written += write_map_err(offset_num << 4, writer)?;
+                buf[6] = ((ms << 3) as u8) | (offset_num >> 4);
+                buf[7] = offset_num << 4;
+                8
             },
             FractionalSecond::Microseconds(us) => {
-                bytes_written += write_map_err((us >> 7) as u8, writer)?;
-                bytes_written += write_map_err(((us << 1) as u8) | offset_num >> 6, writer)?;
-                bytes_written += write_map_err(offset_num << 2, writer)?;
+                buf[6] = (us >> 7) as u8;
+                buf[7] = ((us << 1) as u8) | offset_num >> 6;
+                buf[8] = offset_num << 2;
+                9
             },
             FractionalSecond::Nanoseconds(ns) => {
-                bytes_written += write_map_err((ns >> 17) as u8, writer)?;
-                bytes_written += write_map_err((ns >> 9) as u8, writer)?;
-                bytes_written += write_map_err((ns >> 1) as u8, writer)?;
-                bytes_written += write_map_err((ns << 7) as u8 | offset_num, writer)?;
+                buf[6] = (ns >> 17) as u8;
+                buf[7] = (ns >> 9) as u8;
+                buf[8] = (ns >> 1) as u8;
+                buf[9] = (ns << 7) as u8 | offset_num;
+                10
             }
-        }
+        };
 
-        Ok(bytes_written)
+        write_array_map_err(&buf[0..slice_end_index], writer)
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {

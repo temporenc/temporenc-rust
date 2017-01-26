@@ -66,6 +66,32 @@ pub use date_time_offset::DateTimeOffset;
 pub use date_time_subsecond::DateTimeSubSecond;
 pub use date_time_subsecond_offset::DateTimeSubSecondOffset;
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum DeserializationError {
+    IoError,
+    EarlyEOF,
+    IncorrectTypeTag,
+    IncorrectPrecisionTag
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum SerializationError {
+    InvalidFieldValue(TemporalField),
+    IoError
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TemporalField {
+    Year,
+    Month,
+    Day,
+    Hour,
+    Minute,
+    Second,
+    FractionalSecond,
+    Offset
+}
+
 enum TypeTag {
     DateOnly,
     TimeOnly,
@@ -99,31 +125,27 @@ enum PrecisionTag {
     None
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum DeserializationError {
-    IoError,
-    EarlyEOF,
-    IncorrectTypeTag,
-    IncorrectPrecisionTag
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum SerializationError {
-    InvalidFieldValue(TemporalField),
-    IoError
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum TemporalField {
-    Year,
-    Month,
-    Day,
-    Hour,
-    Minute,
-    Second,
-    FractionalSecond,
-    Offset
-}
+// human-visible range ends (not necessarily internal encoding)
+pub const YEAR_MIN: u16 = 0;
+pub const YEAR_MAX: u16 = 4094;
+pub const MONTH_MIN: u8 = 1;
+pub const MONTH_MAX: u8 = 12;
+pub const DAY_MIN: u8 = 1;
+pub const DAY_MAX: u8 = 31;
+pub const HOUR_MIN: u8 = 0;
+pub const HOUR_MAX: u8 = 23;
+pub const MINUTE_MIN: u8 = 0;
+pub const MINUTE_MAX: u8 = 60;
+pub const SECOND_MIN: u8 = 0;
+pub const SECOND_MAX: u8 = 60;
+pub const MILLIS_MIN: u16 = 0;
+pub const MILLIS_MAX: u16 = 1_000;
+pub const MICROS_MIN: u32 = 0;
+pub const MICROS_MAX: u32 = 1_000_000;
+pub const NANOS_MIN: u32 = 0;
+pub const NANOS_MAX: u32 = 1_000_000_000;
+pub const OFFSET_MIN: i16 = -(64 * 15);
+pub const OFFSET_MAX: i16 = (125 - 64) * 15;
 
 // type tags, expanded to include the rest of the byte
 // 3 bits
@@ -163,42 +185,20 @@ const SECOND_RAW_NONE: u8 = 63;
 const OFFSET_RAW_NONE: u8 = 127;
 const OFFSET_RAW_ELSEWHERE: u8 = 126;
 
-// human-visible range ends (not necessarily internal encoding)
-pub const YEAR_MIN: u16 = 0;
-pub const YEAR_MAX: u16 = 4094;
-pub const MONTH_MIN: u8 = 1;
-pub const MONTH_MAX: u8 = 12;
-pub const DAY_MIN: u8 = 1;
-pub const DAY_MAX: u8 = 31;
-pub const HOUR_MIN: u8 = 0;
-pub const HOUR_MAX: u8 = 23;
-pub const MINUTE_MIN: u8 = 0;
-pub const MINUTE_MAX: u8 = 60;
-pub const SECOND_MIN: u8 = 0;
-pub const SECOND_MAX: u8 = 60;
-pub const MILLIS_MIN: u16 = 0;
-pub const MILLIS_MAX: u16 = 1_000;
-pub const MICROS_MIN: u32 = 0;
-pub const MICROS_MAX: u32 = 1_000_000;
-pub const NANOS_MIN: u32 = 0;
-pub const NANOS_MAX: u32 = 1_000_000_000;
-pub const OFFSET_MIN: i16 = -(64 * 15);
-pub const OFFSET_MAX: i16 = (125 - 64) * 15;
-
 fn next_byte<S: Sized + Read>(bytes: &mut Bytes<S>) -> Result<u8, DeserializationError> {
     bytes.next()
         .map(|r| r.map_err(|_| DeserializationError::IoError))
         .unwrap_or(Err(DeserializationError::EarlyEOF))
 }
 
-fn write_map_err<W: Write>(byte: u8, writer: &mut W) -> Result<usize, SerializationError> {
-    writer.write(&[byte]).map_err(|_| SerializationError::IoError)
+fn write_array_map_err<W: Write>(bytes: &[u8], writer: &mut W) -> Result<usize, SerializationError> {
+    writer.write_all(bytes).map_err(|_| SerializationError::IoError).map(|_| bytes.len())
 }
 
 fn check_option_outside_range<T: PartialOrd>(val: Option<T>, min: T, max: T, field: TemporalField)
                                              -> Result<(), SerializationError> {
     if let Some(v) = val {
-        check_outside_range(v, min, max, field)?;
+        return check_outside_range(v, min, max, field);
     }
 
     Ok(())

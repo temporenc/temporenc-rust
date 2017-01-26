@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Date, Serializable, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, DATE_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE};
+use super::{Date, Serializable, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, DATE_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -53,6 +53,7 @@ impl DateOnly {
             Some(raw_day + 1)
         };
 
+        // TODO check types that don't saturate full range (e.g. month)
         Ok(DateOnly {
             year: year,
             month: month,
@@ -70,14 +71,11 @@ impl DateOnly {
         let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
         let day_num = day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE);
 
-        let b1 = DATE_TAG | ((year_num >> 7) as u8);
-        let mut bytes_written = write_map_err(b1, writer)?;
-        let b2 = ((year_num << 1) as u8) | (month_num >> 3);
-        bytes_written += write_map_err(b2, writer)?;
-        let b3 = (month_num << 5) | day_num;
-        bytes_written += write_map_err(b3, writer)?;
+        let b0 = DATE_TAG | ((year_num >> 7) as u8);
+        let b1 = ((year_num << 1) as u8) | (month_num >> 3);
+        let b2 = (month_num << 5) | day_num;
 
-        Ok(bytes_written)
+        write_array_map_err(&[b0, b1, b2], writer)
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
