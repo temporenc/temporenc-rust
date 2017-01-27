@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Date, Serializable, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, DATE_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE};
+use super::{Date, Serializable, DeserializationError, SerializationError, read_exact, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, DATE_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -11,9 +11,11 @@ pub struct DateOnly {
 }
 
 impl DateOnly {
-    pub fn deserialize<R: Read>(reader: R) -> Result<DateOnly, DeserializationError> {
-        let mut bytes = reader.bytes();
-        let byte0 = next_byte(&mut bytes)?;
+    pub fn deserialize<R: Read>(reader: &mut R) -> Result<DateOnly, DeserializationError> {
+        let mut buf = [0; SERIALIZED_SIZE];
+        read_exact(reader, &mut buf)?;
+
+        let byte0 = buf[0];
 
         if !TypeTag::DateOnly.matches(byte0) {
             return Err(DeserializationError::IncorrectTypeTag);
@@ -24,7 +26,7 @@ impl DateOnly {
 
         // bits 4-15
         let mut raw_year = ((byte0 & 0x1F) as u16) << 7;
-        let byte1 = next_byte(&mut bytes)?;
+        let byte1 = buf[1];
         raw_year |= (byte1 as u16) >> 1;
 
         let year = if raw_year == YEAR_RAW_NONE {
@@ -35,7 +37,7 @@ impl DateOnly {
 
         // bits 16-19
         let mut raw_month = (byte1 & 0x01) << 3;
-        let byte2 = next_byte(&mut bytes)?;
+        let byte2 = buf[2];
         raw_month |= (byte2 & 0xE0) >> 5;
 
         let month = if raw_month == MONTH_RAW_NONE {
@@ -99,10 +101,12 @@ impl Date for DateOnly {
 
 impl Serializable for DateOnly {
     fn max_serialized_size() -> usize {
-        3
+        SERIALIZED_SIZE
     }
 
     fn serialized_size(&self) -> usize {
-        Self::max_serialized_size()
+        SERIALIZED_SIZE
     }
 }
+
+const SERIALIZED_SIZE: usize = 3;

@@ -37,6 +37,8 @@ impl<R: Rng> RandomFieldSource<R> {
         self.none_or_range(SECOND_MIN, SECOND_MAX + 1)
     }
 
+    // incorrectly flagged as dead because not all tests use it
+    #[allow(dead_code)]
     pub fn fractional_second(&mut self) -> FractionalSecond {
         match self.rng.gen_range(0, 4) {
             0 => FractionalSecond::None,
@@ -47,6 +49,8 @@ impl<R: Rng> RandomFieldSource<R> {
         }
     }
 
+    // incorrectly flagged as dead because not all tests use it
+    #[allow(dead_code)]
     pub fn offset(&mut self) -> OffsetValue {
         match self.rng.gen_range(0, 3) {
             0 => OffsetValue::None,

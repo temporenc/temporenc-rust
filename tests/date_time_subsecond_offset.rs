@@ -4,6 +4,7 @@ extern crate rand;
 mod common;
 
 use std::iter::once;
+use std::io::{Cursor, ErrorKind};
 use temporenc::*;
 use common::RandomFieldSource;
 
@@ -11,7 +12,7 @@ use common::RandomFieldSource;
 #[test]
 fn deser_dtso_all_missing() {
     let bytes: Vec<u8> = vec!(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC0);
-    let d = DateTimeSubSecondOffset::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecondOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(None, d.year());
     assert_eq!(None, d.month());
     assert_eq!(None, d.day());
@@ -22,14 +23,14 @@ fn deser_dtso_all_missing() {
     assert_eq!(OffsetValue::None, d.offset());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
 #[test]
 fn deser_dtso_all_no_subsec() {
     let bytes = vec!(0xFB, 0xDF, 0x83, 0xA4, 0xC9, 0x91, 0x00);
-    let d = DateTimeSubSecondOffset::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecondOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -40,14 +41,14 @@ fn deser_dtso_all_no_subsec() {
     assert_eq!(OffsetValue::UtcOffset(60), d.offset());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
 #[test]
 fn deser_dtso_all_ms() {
     let bytes = vec!(0xE3, 0xDF, 0x83, 0xA4, 0xC9, 0x83, 0xDC, 0x40);
-    let d = DateTimeSubSecondOffset::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecondOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -58,7 +59,7 @@ fn deser_dtso_all_ms() {
     assert_eq!(OffsetValue::UtcOffset(60), d.offset());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
@@ -66,7 +67,7 @@ fn deser_dtso_all_ms() {
 #[test]
 fn deser_dtso_all_us() {
     let bytes = vec!(0xEB, 0xDF, 0x83, 0xA4, 0xC9, 0x83, 0xC4, 0x81, 0x10);
-    let d = DateTimeSubSecondOffset::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecondOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -77,14 +78,14 @@ fn deser_dtso_all_us() {
     assert_eq!(OffsetValue::UtcOffset(60), d.offset());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
 #[test]
 fn deser_dtso_all_ns() {
     let bytes = vec!(0xF3, 0xDF, 0x83, 0xA4, 0xC9, 0x83, 0xAD, 0xE6, 0x8A, 0xC4);
-    let d = DateTimeSubSecondOffset::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecondOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -95,21 +96,21 @@ fn deser_dtso_all_ns() {
     assert_eq!(OffsetValue::UtcOffset(60), d.offset());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 #[test]
 fn deser_dtso_wrong_tag() {
-    let bytes = vec!(0x0F);
+    let bytes = vec!(0x0F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
     assert_eq!(DeserializationError::IncorrectTypeTag,
-    DateTimeSubSecondOffset::deserialize(bytes.as_slice()).unwrap_err());
+    DateTimeSubSecondOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
 }
 
 #[test]
 fn deser_dtso_too_short() {
     let bytes = vec!(0xFF, 0xFF);
-    assert_eq!(DeserializationError::EarlyEOF,
-    DateTimeSubSecondOffset::deserialize(bytes.as_slice()).unwrap_err());
+    assert_eq!(DeserializationError::IoError(ErrorKind::UnexpectedEof),
+    DateTimeSubSecondOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
 }
 
 
@@ -157,10 +158,10 @@ fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, ho
                        minute: Option<u8>, second: Option<u8>, frac_second: FractionalSecond,
                        offset: OffsetValue, vec: &mut Vec<u8>) {
     vec.clear();
-    assert_eq!(dtso_serialized_length(frac_second),
-        DateTimeSubSecondOffset::serialize_components(year, month, day, hour, minute, second, frac_second,
-                                                 offset, vec).unwrap());
-    let dt = DateTimeSubSecondOffset::deserialize(vec.as_slice()).unwrap();
+    let expected_length = dtso_serialized_length(frac_second);
+    assert_eq!(expected_length, DateTimeSubSecondOffset::serialize_components(
+        year, month, day, hour, minute, second, frac_second, offset, vec).unwrap());
+    let dt = DateTimeSubSecondOffset::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
 
     assert_eq!(year, dt.year());
     assert_eq!(month, dt.month());

@@ -4,13 +4,14 @@ extern crate rand;
 mod common;
 
 use std::iter::once;
+use std::io::{Cursor, ErrorKind};
 use temporenc::*;
 use common::RandomFieldSource;
 
 #[test]
 fn deser_dt_all_missing() {
     let bytes: Vec<u8> = vec!(0x3F, 0xFF, 0xFF, 0xFF, 0xFF);
-    let d = DateTime::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTime::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(None, d.year());
     assert_eq!(None, d.month());
     assert_eq!(None, d.day());
@@ -19,14 +20,14 @@ fn deser_dt_all_missing() {
     assert_eq!(None, d.second());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
 #[test]
 fn deser_dt_none_missing() {
     let bytes = vec!(0x1E, 0xFC, 0x1D, 0x26, 0x4c);
-    let d = DateTime::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTime::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -35,22 +36,22 @@ fn deser_dt_none_missing() {
     assert_eq!(Some(12), d.second());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
 #[test]
 fn deser_dt_wrong_tag() {
-    let bytes = vec!(0xAF);
+    let bytes = vec!(0xAF, 0xFF, 0xFF, 0xFF, 0xFF);
     assert_eq!(DeserializationError::IncorrectTypeTag,
-               DateTime::deserialize(bytes.as_slice()).unwrap_err());
+               DateTime::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
 }
 
 #[test]
 fn deser_dt_too_short() {
     let bytes = vec!(0x3F, 0x7E);
-    assert_eq!(DeserializationError::EarlyEOF,
-               DateTime::deserialize(bytes.as_slice()).unwrap_err());
+    assert_eq!(DeserializationError::IoError(ErrorKind::UnexpectedEof),
+               DateTime::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
 }
 
 
@@ -109,7 +110,7 @@ fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, ho
                        minute: Option<u8>, second: Option<u8>, vec: &mut Vec<u8>) {
     vec.clear();
     assert_eq!(5, DateTime::serialize_components(year, month, day, hour, minute, second, vec).unwrap());
-    let dt = DateTime::deserialize(vec.as_slice()).unwrap();
+    let dt = DateTime::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
 
     assert_eq!(year, dt.year());
     assert_eq!(month, dt.month());

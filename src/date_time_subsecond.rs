@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, SubSecond, DeserializationError, SerializationError, next_byte, check_option_outside_range, check_outside_range, write_array_map_err, TypeTag, TemporalField, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTS_MASK, PRECISION_DTS_MILLIS_TAG, PRECISION_DTS_MICROS_TAG, PRECISION_DTS_NANOS_TAG, PRECISION_DTS_NONE_TAG};
+use super::{Serializable, Date, Time, SubSecond, DeserializationError, SerializationError, read_exact, check_option_outside_range, check_outside_range, write_array_map_err, TypeTag, TemporalField, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTS_MASK, PRECISION_DTS_MILLIS_TAG, PRECISION_DTS_MICROS_TAG, PRECISION_DTS_NANOS_TAG, PRECISION_DTS_NONE_TAG};
 
 pub struct DateTimeSubSecond {
     year: Option<u16>,
@@ -13,9 +13,11 @@ pub struct DateTimeSubSecond {
 }
 
 impl DateTimeSubSecond {
-    pub fn deserialize<R: Read>(reader: R) -> Result<DateTimeSubSecond, DeserializationError> {
-        let mut bytes = reader.bytes();
-        let byte0 = next_byte(&mut bytes)?;
+    pub fn deserialize<R: Read>(reader: &mut R) -> Result<DateTimeSubSecond, DeserializationError> {
+        let mut buf = [0; MAX_SERIALIZED_SIZE];
+        read_exact(reader, &mut buf[0..MIN_SERIALIZED_SIZE])?;
+
+        let byte0 = buf[0];
 
         if !TypeTag::DateTimeSubSecond.matches(byte0) {
             return Err(DeserializationError::IncorrectTypeTag);
@@ -37,7 +39,7 @@ impl DateTimeSubSecond {
         // MMMM SSSS | SSFF FFFF | [0, 1, 2, or 3 subsecond bytes]
 
         // bits 5-16
-        let byte1 = next_byte(&mut bytes)?;
+        let byte1 = buf[1];
         let mut raw_year = ((byte0 & 0x0F) as u16) << 8;
         raw_year |= byte1 as u16;
 
@@ -48,7 +50,7 @@ impl DateTimeSubSecond {
         };
 
         // bits 17-20
-        let byte2 = next_byte(&mut bytes)?;
+        let byte2 = buf[2];
         let raw_month = byte2 >> 4;
 
         let month = if raw_month == MONTH_RAW_NONE {
@@ -58,7 +60,7 @@ impl DateTimeSubSecond {
         };
 
         // bits 21-25
-        let byte3 = next_byte(&mut bytes)?;
+        let byte3 = buf[3];
         let raw_day = ((byte2 & 0x0F) << 1) | (byte3 >> 7);
         let day = if raw_day == DAY_RAW_NONE {
             None
@@ -75,7 +77,7 @@ impl DateTimeSubSecond {
         };
 
         // bits 31-36
-        let byte4 = next_byte(&mut bytes)?;
+        let byte4 = buf[4];
         let raw_minute = ((byte3 & 0x03) << 4) | (byte4 >> 4);
         let minute = if raw_minute == MINUTE_RAW_NONE {
             None
@@ -84,7 +86,7 @@ impl DateTimeSubSecond {
         };
 
         // bits 37-42
-        let byte5 = next_byte(&mut bytes)?;
+        let byte5 = buf[5];
         let raw_second = ((byte4 & 0x0F) << 2) | ((byte5 & 0xC0) >> 6);
 
         let second = if raw_second == SECOND_RAW_NONE {
@@ -96,26 +98,26 @@ impl DateTimeSubSecond {
         let frac_second = match precision {
             PrecisionTag::None => FractionalSecond::None,
             PrecisionTag::Milli => {
-                // bits 43-52
+                read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..(MIN_SERIALIZED_SIZE + 1)])?;
                 let mut ms = ((byte5 & 0x3F) as u16) << 4;
-                ms |= (next_byte(&mut bytes)? >> 4) as u16;
+                ms |= (buf[6] >> 4) as u16;
 
                 FractionalSecond::Milliseconds(ms)
             }
             PrecisionTag::Micro => {
-                // bits 43-62
+                read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..(MIN_SERIALIZED_SIZE + 2)])?;
                 let mut us = ((byte5 & 0x3F) as u32) << 14;
-                us |= (next_byte(&mut bytes)? as u32) << 6;
-                us |= (next_byte(&mut bytes)? >> 2) as u32;
+                us |= (buf[6] as u32) << 6;
+                us |= (buf[7] >> 2) as u32;
 
                 FractionalSecond::Microseconds(us)
             }
             PrecisionTag::Nano => {
-                // bits 43-72
+                read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..MAX_SERIALIZED_SIZE])?;
                 let mut ns = ((byte5 & 0x3F) as u32) << 24;
-                ns |= (next_byte(&mut bytes)? as u32) << 16;
-                ns |= (next_byte(&mut bytes)? as u32) << 8;
-                ns |= next_byte(&mut bytes)? as u32;
+                ns |= (buf[6] as u32) << 16;
+                ns |= (buf[7] as u32) << 8;
+                ns |= buf[8] as u32;
 
                 FractionalSecond::Nanoseconds(ns)
             }
@@ -135,7 +137,7 @@ impl DateTimeSubSecond {
     pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
                                           hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
                                           fractional_second: FractionalSecond, writer: &mut W)
-                                            -> Result<usize, SerializationError> {
+                                          -> Result<usize, SerializationError> {
         check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
         check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
         check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
@@ -201,9 +203,8 @@ impl DateTimeSubSecond {
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
         Self::serialize_components(self.year, self.month, self.day, self.hour, self.minute, self.second,
-                              self.frac_second, writer)
+                                   self.frac_second, writer)
     }
-
 }
 
 impl Date for DateTimeSubSecond {
@@ -242,15 +243,19 @@ impl SubSecond for DateTimeSubSecond {
 
 impl Serializable for DateTimeSubSecond {
     fn max_serialized_size() -> usize {
-        9
+        MAX_SERIALIZED_SIZE
     }
 
     fn serialized_size(&self) -> usize {
         match self.frac_second {
             FractionalSecond::Milliseconds(_) => 7,
             FractionalSecond::Microseconds(_) => 8,
-            FractionalSecond::Nanoseconds(_) => 9,
-            FractionalSecond::None => 6,
+            FractionalSecond::Nanoseconds(_) => MAX_SERIALIZED_SIZE,
+            FractionalSecond::None => MIN_SERIALIZED_SIZE,
         }
     }
 }
+
+
+const MIN_SERIALIZED_SIZE: usize = 6;
+const MAX_SERIALIZED_SIZE: usize = 9;

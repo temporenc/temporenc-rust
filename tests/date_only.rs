@@ -3,30 +3,31 @@ extern crate temporenc;
 use temporenc::*;
 
 use std::iter::once;
+use std::io::{Cursor, ErrorKind};
 
 #[test]
 fn deser_d_all_missing() {
     let bytes: Vec<u8> = vec!(0x9F, 0xFF, 0xFF);
-    let d = DateOnly::deserialize(bytes.as_slice()).unwrap();
+    let d = DateOnly::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(None, d.year());
     assert_eq!(None, d.month());
     assert_eq!(None, d.day());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
 #[test]
 fn deser_d_none_missing() {
     let bytes = vec!(0x8F, 0x7E, 0x0E);
-    let d = DateOnly::deserialize(bytes.as_slice()).unwrap();
+    let d = DateOnly::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
@@ -34,14 +35,14 @@ fn deser_d_none_missing() {
 fn deser_d_wrong_tag() {
     let bytes = vec!(0xAF, 0xFF, 0xFF);
     assert_eq!(DeserializationError::IncorrectTypeTag,
-               DateOnly::deserialize(bytes.as_slice()).unwrap_err());
+               DateOnly::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
 }
 
 #[test]
 fn deser_d_too_short() {
     let bytes = vec!(0x8F, 0x7E);
-    assert_eq!(DeserializationError::EarlyEOF,
-               DateOnly::deserialize(bytes.as_slice()).unwrap_err());
+    assert_eq!(DeserializationError::IoError(ErrorKind::UnexpectedEof),
+               DateOnly::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
 }
 
 #[test]
@@ -53,7 +54,7 @@ fn date_roundtrip() {
             for day in once(None).chain((DAY_MIN..(DAY_MAX + 1)).map(|d| Some(d))) {
                 vec.clear();
                 assert_eq!(3, DateOnly::serialize_components(year, month, day, &mut vec).unwrap());
-                let date = DateOnly::deserialize(vec.as_slice()).unwrap();
+                let date = DateOnly::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
 
                 assert_eq!(year, date.year());
                 assert_eq!(month, date.month());

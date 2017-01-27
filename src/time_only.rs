@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Time, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
+use super::{Serializable, Time, DeserializationError, SerializationError, read_exact, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -11,10 +11,11 @@ pub struct TimeOnly {
 }
 
 impl TimeOnly {
-    pub fn deserialize<R: Read>(reader: R) -> Result<TimeOnly, DeserializationError> {
-        let mut bytes = reader.bytes();
+    pub fn deserialize<R: Read>(reader: &mut R) -> Result<TimeOnly, DeserializationError> {
+        let mut buf = [0; SERIALIZED_SIZE];
+        read_exact(reader, &mut buf)?;
 
-        let byte0 = next_byte(&mut bytes)?;
+        let byte0 = buf[0];
         if !TypeTag::TimeOnly.matches(byte0) {
             return Err(DeserializationError::IncorrectTypeTag);
         }
@@ -24,7 +25,7 @@ impl TimeOnly {
 
         // bits 8-12
         let mut raw_hour = byte0 << 4;
-        let byte1 = next_byte(&mut bytes)?;
+        let byte1 = buf[1];
         raw_hour |= (byte1 & 0xF0) >> 4;
         let hour = if raw_hour == HOUR_RAW_NONE {
             None
@@ -34,7 +35,7 @@ impl TimeOnly {
 
         // bits 13-18
         let mut raw_minute = (byte1 & 0x0F) << 2;
-        let byte2 = next_byte(&mut bytes)?;
+        let byte2 = buf[2];
         raw_minute |= (byte2 & 0xC0) >> 6;
         let minute = if raw_minute == MINUTE_RAW_NONE {
             None
@@ -95,10 +96,12 @@ impl Time for TimeOnly {
 
 impl Serializable for TimeOnly {
     fn max_serialized_size() -> usize {
-        3
+        SERIALIZED_SIZE
     }
 
     fn serialized_size(&self) -> usize {
-        Self::max_serialized_size()
+        SERIALIZED_SIZE
     }
 }
+
+const SERIALIZED_SIZE: usize = 3;

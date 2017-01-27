@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, Offset, DeserializationError, SerializationError, next_byte, check_option_outside_range, check_outside_range, write_array_map_err, TypeTag, TemporalField, OffsetValue, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, OFFSET_MAX, OFFSET_MIN, DATE_TIME_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, OFFSET_RAW_NONE, OFFSET_RAW_ELSEWHERE};
+use super::{Serializable, Date, Time, Offset, DeserializationError, SerializationError, read_exact, check_option_outside_range, check_outside_range, write_array_map_err, TypeTag, TemporalField, OffsetValue, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, OFFSET_MAX, OFFSET_MIN, DATE_TIME_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, OFFSET_RAW_NONE, OFFSET_RAW_ELSEWHERE};
 
 
 #[derive(Debug)]
@@ -15,9 +15,11 @@ pub struct DateTimeOffset {
 }
 
 impl DateTimeOffset {
-    pub fn deserialize<R: Read>(reader: R) -> Result<DateTimeOffset, DeserializationError> {
-        let mut bytes = reader.bytes();
-        let byte0 = next_byte(&mut bytes)?;
+    pub fn deserialize<R: Read>(reader: &mut R) -> Result<DateTimeOffset, DeserializationError> {
+        let mut buf = [0; SERIALIZED_SIZE];
+        read_exact(reader, &mut buf)?;
+
+        let byte0 = buf[0];
 
         if !TypeTag::DateTimeOffset.matches(byte0) {
             return Err(DeserializationError::IncorrectTypeTag);
@@ -29,7 +31,7 @@ impl DateTimeOffset {
 
         // bits 4-15
         let mut raw_year = ((byte0 & 0x1F) as u16) << 7;
-        let byte1 = next_byte(&mut bytes)?;
+        let byte1 = buf[1];
         raw_year |= (byte1 as u16) >> 1;
         let year = if raw_year == YEAR_RAW_NONE {
             None
@@ -38,7 +40,7 @@ impl DateTimeOffset {
         };
 
         // bits 16-19
-        let byte2 = next_byte(&mut bytes)?;
+        let byte2 = buf[2];
         let raw_month = ((byte1 & 0x01) << 3) | ((byte2 & 0xE0) >> 5);
         let month = if raw_month == MONTH_RAW_NONE {
             None
@@ -55,7 +57,7 @@ impl DateTimeOffset {
         };
 
         // bits 25-29
-        let byte3 = next_byte(&mut bytes)?;
+        let byte3 = buf[3];
         let raw_hour = byte3 >> 3;
         let hour = if raw_hour == HOUR_RAW_NONE {
             None
@@ -64,7 +66,7 @@ impl DateTimeOffset {
         };
 
         // bits 30-35
-        let byte4 = next_byte(&mut bytes)?;
+        let byte4 = buf[4];
         let raw_minute = ((byte3 & 0x07) << 3) | (byte4 >> 5);
         let minute = if raw_minute == MINUTE_RAW_NONE {
             None
@@ -73,7 +75,7 @@ impl DateTimeOffset {
         };
 
         // bits 36-41
-        let byte5 = next_byte(&mut bytes)?;
+        let byte5 = buf[5];
         let raw_second = (byte4 & 0x1F) << 1 | (byte5 >> 7);
         let second = if raw_second == SECOND_RAW_NONE {
             None
@@ -190,10 +192,12 @@ pub fn encode_offset_num(offset: OffsetValue) -> Result<u8, SerializationError> 
 
 impl Serializable for DateTimeOffset {
     fn max_serialized_size() -> usize {
-        6
+        SERIALIZED_SIZE
     }
 
     fn serialized_size(&self) -> usize {
-        Self::max_serialized_size()
+        SERIALIZED_SIZE
     }
 }
+
+const SERIALIZED_SIZE: usize = 6;

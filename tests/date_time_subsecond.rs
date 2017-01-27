@@ -4,15 +4,14 @@ extern crate rand;
 mod common;
 
 use std::iter::once;
-
+use std::io::Cursor;
 use temporenc::*;
-
 use common::RandomFieldSource;
 
 #[test]
 fn deser_dts_all_missing() {
     let bytes = vec!(0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xC0);
-    let d = DateTimeSubSecond::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecond::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(None, d.year());
     assert_eq!(None, d.month());
     assert_eq!(None, d.day());
@@ -22,14 +21,14 @@ fn deser_dts_all_missing() {
     assert_eq!(FractionalSecond::None, d.fractional_second());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
 #[test]
 fn deser_dts_all_no_subsec() {
     let bytes = vec!(0x77, 0xBF, 0x07, 0x49, 0x93, 0x00);
-    let d = DateTimeSubSecond::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecond::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -39,7 +38,7 @@ fn deser_dts_all_no_subsec() {
     assert_eq!(FractionalSecond::None, d.fractional_second());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
@@ -47,7 +46,7 @@ fn deser_dts_all_no_subsec() {
 #[test]
 fn deser_dts_all_ms() {
     let bytes = vec!(0x47, 0xBF, 0x07, 0x49, 0x93, 0x07, 0xB0);
-    let d = DateTimeSubSecond::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecond::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -57,14 +56,14 @@ fn deser_dts_all_ms() {
     assert_eq!(FractionalSecond::Milliseconds(123), d.fractional_second());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
 #[test]
 fn deser_dts_all_us() {
     let bytes = vec!(0x57, 0xBF, 0x07, 0x49, 0x93, 0x07, 0x89, 0x00);
-    let d = DateTimeSubSecond::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecond::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -74,14 +73,14 @@ fn deser_dts_all_us() {
     assert_eq!(FractionalSecond::Microseconds(123456), d.fractional_second());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
 #[test]
 fn deser_dts_all_ns() {
     let bytes = vec!(0x67, 0xBF, 0x07, 0x49, 0x93, 0x07, 0x5B, 0xCD, 0x15);
-    let d = DateTimeSubSecond::deserialize(bytes.as_slice()).unwrap();
+    let d = DateTimeSubSecond::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(Some(1983), d.year());
     assert_eq!(Some(1), d.month());
     assert_eq!(Some(15), d.day());
@@ -91,7 +90,7 @@ fn deser_dts_all_ns() {
     assert_eq!(FractionalSecond::Nanoseconds(123456789), d.fractional_second());
 
     let mut serialized = Vec::new();
-    let _ = d.serialize(&mut serialized).unwrap();
+    assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
     assert_eq!(bytes, serialized);
 }
 
@@ -169,7 +168,7 @@ fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, ho
     assert_eq!(expected_length,
         DateTimeSubSecond::serialize_components(year, month, day, hour, minute, second, frac_second,
                                                 vec).unwrap());
-    let dts = DateTimeSubSecond::deserialize(vec.as_slice()).unwrap();
+    let dts = DateTimeSubSecond::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
 
     assert_eq!(year, dts.year());
     assert_eq!(month, dts.month());

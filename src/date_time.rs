@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, DeserializationError, SerializationError, next_byte, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
+use super::{Serializable, Date, Time, DeserializationError, SerializationError, read_exact, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -14,9 +14,11 @@ pub struct DateTime {
 }
 
 impl DateTime {
-    pub fn deserialize<R: Read>(reader: R) -> Result<DateTime, DeserializationError> {
-        let mut bytes = reader.bytes();
-        let byte0 = next_byte(&mut bytes)?;
+    pub fn deserialize<R: Read>(reader: &mut R) -> Result<DateTime, DeserializationError> {
+        let mut buf = [0; SERIALIZED_SIZE];
+        read_exact(reader, &mut buf)?;
+
+        let byte0 = buf[0];
 
         if !TypeTag::DateTime.matches(byte0) {
             return Err(DeserializationError::IncorrectTypeTag);
@@ -26,7 +28,7 @@ impl DateTime {
         // TTYY YYYY | YYYY YYMM | MMDD DDDH | HHHH MMMM | MMSS SSSS
 
         // bits 3-14
-        let byte1 = next_byte(&mut bytes)?;
+        let byte1 = buf[1];
         let mut raw_year = ((byte0 & 0x3F) as u16) << 6;
         raw_year |= (byte1 >> 2) as u16;
         let year = if raw_year == YEAR_RAW_NONE {
@@ -36,7 +38,7 @@ impl DateTime {
         };
 
         // bits 15-18
-        let byte2 = next_byte(&mut bytes)?;
+        let byte2 = buf[2];
         let raw_month = ((byte1 & 0x03) << 2) | (byte2 >> 6);
         let month = if raw_month == MONTH_RAW_NONE {
             None
@@ -53,7 +55,7 @@ impl DateTime {
         };
 
         // bits 24-28
-        let byte3 = next_byte(&mut bytes)?;
+        let byte3 = buf[3];
         let raw_hour = ((byte2 & 0x01) << 4) | (byte3 >> 4);
         let hour = if raw_hour == HOUR_RAW_NONE {
             None
@@ -62,7 +64,7 @@ impl DateTime {
         };
 
         // bits 29-34
-        let byte4 = next_byte(&mut bytes)?;
+        let byte4 = buf[4];
         let raw_minute = ((byte3 & 0x0F) << 2) | (byte4 >> 6);
         let minute = if raw_minute == MINUTE_RAW_NONE {
             None
@@ -150,10 +152,12 @@ impl Time for DateTime {
 
 impl Serializable for DateTime {
     fn max_serialized_size() -> usize {
-        5
+        SERIALIZED_SIZE
     }
 
     fn serialized_size(&self) -> usize {
-        Self::max_serialized_size()
+        SERIALIZED_SIZE
     }
 }
+
+const SERIALIZED_SIZE: usize = 5;
