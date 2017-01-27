@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, Offset, DeserializationError, SerializationError, read_exact, check_option_outside_range, check_outside_range, write_array_map_err, TypeTag, TemporalField, OffsetValue, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, OFFSET_MAX, OFFSET_MIN, DATE_TIME_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, OFFSET_RAW_NONE, OFFSET_RAW_ELSEWHERE};
+use super::{Serializable, Date, Time, Offset, DeserializationError, SerializationError, read_exact, check_option_outside_range,  write_array_map_err, encode_offset_num, TypeTag, TemporalField, OffsetValue, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -169,24 +169,6 @@ impl Time for DateTimeOffset {
 impl Offset for DateTimeOffset {
     fn offset(&self) -> OffsetValue {
         self.offset
-    }
-}
-
-// 3x speed boost on serialization benchmarks with this inline
-#[inline]
-pub fn encode_offset_num(offset: OffsetValue) -> Result<u8, SerializationError> {
-    match offset {
-        OffsetValue::None => Ok(OFFSET_RAW_NONE),
-        OffsetValue::SpecifiedElsewhere => Ok(OFFSET_RAW_ELSEWHERE),
-        OffsetValue::UtcOffset(o) => {
-            check_outside_range(o, OFFSET_MIN, OFFSET_MAX, TemporalField::Offset)?;
-
-            if o % 15 != 0 {
-                return Err(SerializationError::InvalidFieldValue(TemporalField::Offset));
-            };
-
-            Ok(((o / 15) + 64) as u8)
-        }
     }
 }
 

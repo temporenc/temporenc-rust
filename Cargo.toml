@@ -7,3 +7,7 @@ authors = ["Marshall Pierce <marshall@mpierce.org>"]
 
 [dev-dependencies]
 rand = "0.3.15"
+
+[profile.release]
+# Uncomment when profiling with perf
+#debug = true
