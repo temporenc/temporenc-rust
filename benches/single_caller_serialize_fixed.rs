@@ -15,7 +15,7 @@ use temporenc::*;
 // heavily.
 
 #[bench]
-fn serialize_date_fixed(b: &mut Bencher) {
+fn serialize_fixed_date(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateOnly::max_serialized_size());
     b.bytes = v.capacity() as u64;
 
@@ -32,7 +32,7 @@ fn serialize_date_fixed(b: &mut Bencher) {
 }
 
 #[bench]
-fn serialize_time_fixed(b: &mut Bencher) {
+fn serialize_fixed_time(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * TimeOnly::max_serialized_size());
     b.bytes = v.capacity() as u64;
 
@@ -49,7 +49,7 @@ fn serialize_time_fixed(b: &mut Bencher) {
 }
 
 #[bench]
-fn serialize_date_time_fixed(b: &mut Bencher) {
+fn serialize_fixed_date_time(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTime::max_serialized_size());
     b.bytes = v.capacity() as u64;
 
@@ -69,7 +69,7 @@ fn serialize_date_time_fixed(b: &mut Bencher) {
 }
 
 #[bench]
-fn serialize_date_time_offset_fixed(b: &mut Bencher) {
+fn serialize_fixed_date_time_offset(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeOffset::max_serialized_size());
     b.bytes = v.capacity() as u64;
 
@@ -91,7 +91,7 @@ fn serialize_date_time_offset_fixed(b: &mut Bencher) {
 }
 
 #[bench]
-fn serialize_date_time_subsecond_ns_fixed(b: &mut Bencher) {
+fn serialize_fixed_date_time_subsecond_ns(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecond::max_serialized_size());
     b.bytes = v.capacity() as u64;
 
@@ -113,7 +113,7 @@ fn serialize_date_time_subsecond_ns_fixed(b: &mut Bencher) {
 }
 
 #[bench]
-fn serialize_date_time_subsecond_ns_offset_fixed(b: &mut Bencher) {
+fn serialize_fixed_date_time_subsecond_ns_offset(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecondOffset::max_serialized_size());
     b.bytes = v.capacity() as u64;
 

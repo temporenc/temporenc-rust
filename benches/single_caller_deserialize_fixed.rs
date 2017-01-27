@@ -13,7 +13,7 @@ use common::{bb, NUM_ITEMS};
 use temporenc::*;
 
 #[bench]
-fn deserialize_date_only_fixed(b: &mut Bencher) {
+fn deserialize_fixed_date_only(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateOnly::max_serialized_size());
 
     let year = bb(Some(1000));
@@ -35,7 +35,7 @@ fn deserialize_date_only_fixed(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_time_only_fixed(b: &mut Bencher) {
+fn deserialize_fixed_time_only(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * TimeOnly::max_serialized_size());
 
     let hour = bb(Some(12));
@@ -57,7 +57,7 @@ fn deserialize_time_only_fixed(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_date_time_fixed(b: &mut Bencher) {
+fn deserialize_fixed_date_time(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTime::max_serialized_size());
 
     let year = bb(Some(1000));
@@ -82,7 +82,7 @@ fn deserialize_date_time_fixed(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_date_time_offset_fixed(b: &mut Bencher) {
+fn deserialize_fixed_date_time_offset(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeOffset::max_serialized_size());
 
     let year = bb(Some(1000));
@@ -109,7 +109,7 @@ fn deserialize_date_time_offset_fixed(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_date_time_subsecond_fixed(b: &mut Bencher) {
+fn deserialize_fixed_date_time_subsecond(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecond::max_serialized_size());
 
     let year = bb(Some(1000));
@@ -136,7 +136,7 @@ fn deserialize_date_time_subsecond_fixed(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_date_time_subsecond_offset_fixed(b: &mut Bencher) {
+fn deserialize_fixed_date_time_subsecond_offset(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecondOffset::max_serialized_size());
 
     let year = bb(Some(1000));

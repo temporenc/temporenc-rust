@@ -12,7 +12,7 @@ use common::{NUM_ITEMS, RandomFieldSource};
 use temporenc::*;
 
 #[bench]
-fn deserialize_date_only_random(b: &mut Bencher) {
+fn deserialize_random_date_only(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateOnly::max_serialized_size());
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
@@ -31,7 +31,7 @@ fn deserialize_date_only_random(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_time_only_random(b: &mut Bencher) {
+fn deserialize_random_time_only(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * TimeOnly::max_serialized_size());
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
@@ -50,7 +50,7 @@ fn deserialize_time_only_random(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_date_time_random(b: &mut Bencher) {
+fn deserialize_random_date_time(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTime::max_serialized_size());
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
@@ -70,7 +70,7 @@ fn deserialize_date_time_random(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_date_time_offset_random(b: &mut Bencher) {
+fn deserialize_random_date_time_offset(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeOffset::max_serialized_size());
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
@@ -90,7 +90,7 @@ fn deserialize_date_time_offset_random(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_date_time_subsecond_random(b: &mut Bencher) {
+fn deserialize_random_date_time_subsecond(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecond::max_serialized_size());
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
@@ -111,7 +111,7 @@ fn deserialize_date_time_subsecond_random(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_date_time_subsecond_offset_random(b: &mut Bencher) {
+fn deserialize_random_date_time_subsecond_offset(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecondOffset::max_serialized_size());
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
