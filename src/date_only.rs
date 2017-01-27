@@ -28,7 +28,6 @@ impl DateOnly {
         let mut raw_year = ((byte0 & 0x1F) as u16) << 7;
         let byte1 = buf[1];
         raw_year |= (byte1 as u16) >> 1;
-
         let year = if raw_year == YEAR_RAW_NONE {
             None
         } else {
@@ -39,20 +38,18 @@ impl DateOnly {
         let mut raw_month = (byte1 & 0x01) << 3;
         let byte2 = buf[2];
         raw_month |= (byte2 & 0xE0) >> 5;
-
         let month = if raw_month == MONTH_RAW_NONE {
             None
         } else {
-            Some(raw_month + 1)
+            Some(raw_month)
         };
 
         // bits 20-24
         let raw_day = byte2 & 0x1F;
-
         let day = if raw_day == DAY_RAW_NONE {
             None
         } else {
-            Some(raw_day + 1)
+            Some(raw_day)
         };
 
         // TODO check types that don't saturate full range (e.g. month)

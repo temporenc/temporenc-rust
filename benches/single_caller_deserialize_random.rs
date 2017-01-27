@@ -22,11 +22,6 @@ fn deserialize_date_only_random(b: &mut Bencher) {
 
     b.bytes = v.len() as u64;
 
-    let mut buf = Vec::new();
-    for _ in 0..DateOnly::max_serialized_size() {
-        buf.push(0);
-    }
-
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
         for _ in 0..NUM_ITEMS {
@@ -45,11 +40,6 @@ fn deserialize_time_only_random(b: &mut Bencher) {
     }
 
     b.bytes = v.len() as u64;
-
-    let mut buf = Vec::new();
-    for _ in 0..TimeOnly::max_serialized_size() {
-        buf.push(0);
-    }
 
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
@@ -71,11 +61,6 @@ fn deserialize_date_time_random(b: &mut Bencher) {
 
     b.bytes = v.len() as u64;
 
-    let mut buf = Vec::new();
-    for _ in 0..DateTime::max_serialized_size() {
-        buf.push(0);
-    }
-
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
         for _ in 0..NUM_ITEMS {
@@ -95,11 +80,6 @@ fn deserialize_date_time_offset_random(b: &mut Bencher) {
     }
 
     b.bytes = v.len() as u64;
-
-    let mut buf = Vec::new();
-    for _ in 0..DateTimeOffset::max_serialized_size() {
-        buf.push(0);
-    }
 
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
@@ -122,11 +102,6 @@ fn deserialize_date_time_subsecond_random(b: &mut Bencher) {
 
     b.bytes = v.len() as u64;
 
-    let mut buf = Vec::new();
-    for _ in 0..DateTimeSubSecond::max_serialized_size() {
-        buf.push(0);
-    }
-
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
         for _ in 0..NUM_ITEMS {
@@ -147,11 +122,6 @@ fn deserialize_date_time_subsecond_offset_random(b: &mut Bencher) {
     }
 
     b.bytes = v.len() as u64;
-
-    let mut buf = Vec::new();
-    for _ in 0..DateTimeSubSecondOffset::max_serialized_size() {
-        buf.push(0);
-    }
 
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
