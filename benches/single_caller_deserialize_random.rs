@@ -6,7 +6,7 @@ extern crate rand;
 
 mod common;
 
-use std::io::{Cursor};
+use std::io::Cursor;
 use test::Bencher;
 use common::{NUM_ITEMS, RandomFieldSource};
 use temporenc::*;
