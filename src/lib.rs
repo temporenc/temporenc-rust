@@ -159,6 +159,7 @@ const SECOND_RAW_NONE: u8 = 63;
 const OFFSET_RAW_NONE: u8 = 127;
 const OFFSET_RAW_ELSEWHERE: u8 = 126;
 
+// TODO investigate inlining... why isn't it inlined in date_only?
 fn read_exact<R: Read>(reader: &mut R, buf: &mut [u8]) -> Result<(), DeserializationError> {
     reader.read_exact(buf).map_err(|e| DeserializationError::IoError(e.kind()))
 }

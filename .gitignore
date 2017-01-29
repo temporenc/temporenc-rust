@@ -1,4 +1,7 @@
 .idea
 *.iml
 target
+
 perf.data*
+*.perf
+callgrind.out.*
