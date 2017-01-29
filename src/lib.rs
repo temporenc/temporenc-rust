@@ -91,31 +91,6 @@ pub enum TemporalField {
     Offset
 }
 
-enum TypeTag {
-    DateOnly,
-    TimeOnly,
-    DateTime,
-    DateTimeOffset,
-    DateTimeSubSecond,
-    DateTimeSubSecondOffset
-}
-
-impl TypeTag {
-    fn matches(&self, byte: u8) -> bool {
-        let top_three_bits = 0b1110_0000;
-        let top_two_bits = 0b1100_0000;
-        let top_seven_bits = 0b1111_1110;
-        match self {
-            &TypeTag::DateOnly => byte & top_three_bits == DATE_TAG,
-            &TypeTag::TimeOnly => byte & top_seven_bits == TIME_TAG,
-            &TypeTag::DateTime => byte & top_two_bits == DATE_TIME_TAG,
-            &TypeTag::DateTimeOffset => byte & top_three_bits == DATE_TIME_OFFSET_TAG,
-            &TypeTag::DateTimeSubSecond => byte & top_two_bits == DATE_TIME_SUBSECOND_TAG,
-            &TypeTag::DateTimeSubSecondOffset => byte & top_three_bits == DATE_TIME_SUBSECOND_OFFSET_TAG
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Eq)]
 enum PrecisionTag {
     Milli,

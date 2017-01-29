@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, DeserializationError, SerializationError, read_exact, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
+use super::{Serializable, Date, Time, DeserializationError, SerializationError, read_exact, check_option_outside_range, write_array_map_err, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -20,7 +20,7 @@ impl DateTime {
 
         let byte0 = buf[0];
 
-        if !TypeTag::DateTime.matches(byte0) {
+        if byte0 & 0b1100_0000 != DATE_TIME_TAG {
             return Err(DeserializationError::IncorrectTypeTag);
         }
 

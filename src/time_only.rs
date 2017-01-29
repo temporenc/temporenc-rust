@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Time, DeserializationError, SerializationError, read_exact, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
+use super::{Serializable, Time, DeserializationError, SerializationError, read_exact, check_option_outside_range, write_array_map_err, TemporalField, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -16,7 +16,7 @@ impl TimeOnly {
         read_exact(reader, &mut buf)?;
 
         let byte0 = buf[0];
-        if !TypeTag::TimeOnly.matches(byte0) {
+        if byte0 & 0b1111_1110 != TIME_TAG {
             return Err(DeserializationError::IncorrectTypeTag);
         }
 

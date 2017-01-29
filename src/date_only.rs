@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Date, Serializable, DeserializationError, SerializationError, read_exact, check_option_outside_range, write_array_map_err, TypeTag, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, DATE_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE};
+use super::{Date, Serializable, DeserializationError, SerializationError, read_exact, check_option_outside_range, write_array_map_err, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, DATE_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -17,7 +17,7 @@ impl DateOnly {
 
         let byte0 = buf[0];
 
-        if !TypeTag::DateOnly.matches(byte0) {
+        if byte0 & 0b1110_0000 != DATE_TAG {
             return Err(DeserializationError::IncorrectTypeTag);
         }
 

@@ -8,7 +8,7 @@ homepage = "https://github.com/temporenc/temporenc-rust"
 repository = "https://github.com/temporenc/temporenc-rust"
 readme = "README.md"
 keywords = ["time", "date", "temporenc"]
-categories = ["date-and-time"]
+categories = ["date-and-time", "encoding"]
 license-file = "LICENSE.txt"
 
 [dependencies]
