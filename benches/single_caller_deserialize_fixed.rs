@@ -12,6 +12,9 @@ use test::Bencher;
 use common::{bb, NUM_ITEMS};
 use temporenc::*;
 
+// TODO why is this benchmark half the speed of time_only?
+// perf and oprofile seem to imply that the inlining decisions made here are quite
+// different from what happens for time_only
 #[bench]
 fn deserialize_fixed_date_only(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateOnly::max_serialized_size());
@@ -109,7 +112,7 @@ fn deserialize_fixed_date_time_offset(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_fixed_date_time_subsecond(b: &mut Bencher) {
+fn deserialize_fixed_date_time_subsecond_ns(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecond::max_serialized_size());
 
     let year = bb(Some(1000));
@@ -136,7 +139,7 @@ fn deserialize_fixed_date_time_subsecond(b: &mut Bencher) {
 }
 
 #[bench]
-fn deserialize_fixed_date_time_subsecond_offset(b: &mut Bencher) {
+fn deserialize_fixed_date_time_subsecond_ns_offset(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecondOffset::max_serialized_size());
 
     let year = bb(Some(1000));

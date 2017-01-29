@@ -5,3 +5,4 @@ target
 perf.data*
 *.perf
 callgrind.out.*
+oprofile_data

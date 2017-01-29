@@ -84,8 +84,7 @@ fn serialize_random_date_time_offset(b: &mut Bencher) {
 
 #[bench]
 fn serialize_random_date_time_subsecond(b: &mut Bencher) {
-    let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeOffset::max_serialized_size());
-    b.bytes = v.capacity() as u64;
+    let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecond::max_serialized_size());
     let mut r = RandomFieldSource::new(rand::weak_rng());
     b.iter(|| {
         let year = r.year();
@@ -105,8 +104,7 @@ fn serialize_random_date_time_subsecond(b: &mut Bencher) {
 
 #[bench]
 fn serialize_random_date_time_subsecond_offset(b: &mut Bencher) {
-    let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeOffset::max_serialized_size());
-    b.bytes = v.capacity() as u64;
+    let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecondOffset::max_serialized_size());
     let mut r = RandomFieldSource::new(rand::weak_rng());
     b.iter(|| {
         let year = r.year();
