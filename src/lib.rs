@@ -159,7 +159,11 @@ const SECOND_RAW_NONE: u8 = 63;
 const OFFSET_RAW_NONE: u8 = 127;
 const OFFSET_RAW_ELSEWHERE: u8 = 126;
 
-// TODO investigate inlining... why isn't it inlined in date_only?
+// As of 1.14, yields a ~25% perf improvement when there are multiple things in the benchmark
+// that end up calling this (namely, all benchmarks that have > 1 type deserialized).
+// With (always), benchmarks perform the same as they do when all other functions in the file
+// are commented out. With merely #[inline], it has no effect vs no inline at all.
+#[inline(always)]
 fn read_exact<R: Read>(reader: &mut R, buf: &mut [u8]) -> Result<(), DeserializationError> {
     reader.read_exact(buf).map_err(|e| DeserializationError::IoError(e.kind()))
 }
@@ -186,7 +190,7 @@ fn check_outside_range<T: PartialOrd>(v: T, min: T, max: T, field: TemporalField
     Ok(())
 }
 
-// 3x speed boost on serialization benchmarks with this inline
+// As of 1.14, 3x speed boost on serialization benchmarks with this inline
 #[inline]
 fn encode_offset_num(offset: OffsetValue) -> Result<u8, SerializationError> {
     match offset {
