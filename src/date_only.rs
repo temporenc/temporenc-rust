@@ -41,7 +41,7 @@ impl DateOnly {
         let month = if raw_month == MONTH_RAW_NONE {
             None
         } else {
-            Some(raw_month)
+            Some(raw_month + 1)
         };
 
         // bits 20-24
@@ -49,7 +49,7 @@ impl DateOnly {
         let day = if raw_day == DAY_RAW_NONE {
             None
         } else {
-            Some(raw_day)
+            Some(raw_day + 1)
         };
 
         // TODO check types that don't saturate full range (e.g. month)
