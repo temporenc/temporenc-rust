@@ -95,6 +95,14 @@ fn deser_dts_all_ns() {
 }
 
 #[test]
+fn deser_dts_too_short() {
+    let bytes = vec!(0x47, 0xBF, 0x07, 0x49, 0x93, 0x07, 0xB0);
+    assert_eq!(DeserializationError::IoError,
+        DateTimeOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
+}
+
+
+#[test]
 fn roundtrip_dts_all_year_month_day() {
     let mut vec = Vec::new();
     let mut random_fields = RandomFieldSource::new(rand::weak_rng());

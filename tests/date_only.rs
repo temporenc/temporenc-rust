@@ -3,7 +3,7 @@ extern crate temporenc;
 use temporenc::*;
 
 use std::iter::once;
-use std::io::{Cursor, ErrorKind};
+use std::io::Cursor;
 
 #[test]
 fn deser_d_all_missing() {
@@ -41,7 +41,7 @@ fn deser_d_wrong_tag() {
 #[test]
 fn deser_d_too_short() {
     let bytes = vec!(0x8F, 0x7E);
-    assert_eq!(DeserializationError::IoError(ErrorKind::UnexpectedEof),
+    assert_eq!(DeserializationError::IoError,
                DateOnly::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
 }
 

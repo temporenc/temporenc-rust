@@ -1,5 +1,4 @@
 use std::io::{Read, Write};
-use std::io::ErrorKind;
 
 pub trait Serializable {
     /// The largest encoded size of any instance of the type
@@ -68,7 +67,7 @@ pub use date_time_subsecond_offset::DateTimeSubSecondOffset;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DeserializationError {
-    IoError(ErrorKind),
+    IoError,
     IncorrectTypeTag,
     IncorrectPrecisionTag
 }
@@ -165,7 +164,7 @@ const OFFSET_RAW_ELSEWHERE: u8 = 126;
 // are commented out. With merely #[inline], it has no effect vs no inline at all.
 #[inline(always)]
 fn read_exact<R: Read>(reader: &mut R, buf: &mut [u8]) -> Result<(), DeserializationError> {
-    reader.read_exact(buf).map_err(|e| DeserializationError::IoError(e.kind()))
+    reader.read_exact(buf).map_err(|_| DeserializationError::IoError)
 }
 
 fn write_array_map_err<W: Write>(bytes: &[u8], writer: &mut W) -> Result<usize, SerializationError> {

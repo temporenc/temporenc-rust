@@ -4,7 +4,6 @@ use temporenc::*;
 
 use std::iter::once;
 use std::io::Cursor;
-use std::io::ErrorKind;
 
 #[test]
 fn deser_time_all_missing() {
@@ -42,7 +41,7 @@ fn deser_time_wrong_tag() {
 #[test]
 fn deser_time_too_short() {
     let bytes = vec!(0xA1, 0xFF);
-    assert_eq!(DeserializationError::IoError(ErrorKind::UnexpectedEof),
+    assert_eq!(DeserializationError::IoError,
         TimeOnly::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
 }
 

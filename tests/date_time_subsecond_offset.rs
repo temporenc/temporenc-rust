@@ -4,7 +4,7 @@ extern crate rand;
 mod common;
 
 use std::iter::once;
-use std::io::{Cursor, ErrorKind};
+use std::io::Cursor;
 use temporenc::*;
 use common::RandomFieldSource;
 
@@ -109,8 +109,8 @@ fn deser_dtso_wrong_tag() {
 #[test]
 fn deser_dtso_too_short() {
     let bytes = vec!(0xFF, 0xFF);
-    assert_eq!(DeserializationError::IoError(ErrorKind::UnexpectedEof),
-    DateTimeSubSecondOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
+    assert_eq!(DeserializationError::IoError,
+        DateTimeSubSecondOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
 }
 
 
