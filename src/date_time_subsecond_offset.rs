@@ -4,14 +4,14 @@ use super::{Serializable, Date, Time, SubSecond, Offset, DeserializationError, S
 
 #[derive(Debug)]
 pub struct DateTimeSubSecondOffset {
-    year: Option<u16>,
-    month: Option<u8>,
-    day: Option<u8>,
-    hour: Option<u8>,
-    minute: Option<u8>,
-    second: Option<u8>,
+    year: u16,
+    month: u8,
+    day: u8,
+    hour: u8,
+    minute: u8,
+    second: u8,
     frac_second: FractionalSecond,
-    offset: OffsetValue
+    offset: u8
 }
 
 impl DateTimeSubSecondOffset {
@@ -48,49 +48,19 @@ impl DateTimeSubSecondOffset {
         let mut raw_year = ((byte0 & 0x07) as u16) << 9;
         raw_year |= (byte1 as u16) << 1;
         raw_year |= ((byte2 as u16) & 0x80) >> 7;
-        let year = if raw_year == YEAR_RAW_NONE {
-            None
-        } else {
-            Some(raw_year)
-        };
 
         let raw_month = (byte2 & 0x78) >> 3;
-        let month = if raw_month == MONTH_RAW_NONE {
-            None
-        } else {
-            Some(raw_month + 1)
-        };
 
         let byte3 = buf[3];
         let raw_day = ((byte2 & 0x07) << 2) | (byte3 >> 6);
-        let day = if raw_day == DAY_RAW_NONE {
-            None
-        } else {
-            Some(raw_day + 1)
-        };
 
         let raw_hour = (byte3 & 0x3E) >> 1;
-        let hour = if raw_hour == HOUR_RAW_NONE {
-            None
-        } else {
-            Some(raw_hour)
-        };
 
         let byte4 = buf[4];
         let raw_minute = ((byte3 & 0x01) << 5) | (byte4 >> 3);
-        let minute = if raw_minute == MINUTE_RAW_NONE {
-            None
-        } else {
-            Some(raw_minute)
-        };
 
         let byte5 = buf[5];
         let raw_second = ((byte4 & 0x07) << 3) | (byte5 >> 5);
-        let second = if raw_second == SECOND_RAW_NONE {
-            None
-        } else {
-            Some(raw_second)
-        };
 
         let (frac_second, last_variable_byte) = match precision {
             PrecisionTag::Milli => {
@@ -130,29 +100,24 @@ impl DateTimeSubSecondOffset {
             PrecisionTag::Nano => last_variable_byte & 0x7F,
             PrecisionTag::None => ((last_variable_byte & 0x1F) << 2) | (buf[6] >> 6),
         };
-        let offset = match raw_offset {
-            127 => OffsetValue::None,
-            126 => OffsetValue::SpecifiedElsewhere,
-            x => OffsetValue::UtcOffset(((x as i16) - 64) * 15)
-        };
 
         Ok(DateTimeSubSecondOffset {
-            year: year,
-            month: month,
-            day: day,
-            hour: hour,
-            minute: minute,
-            second: second,
+            year: raw_year,
+            month: raw_month,
+            day: raw_day,
+            hour: raw_hour,
+            minute: raw_minute,
+            second: raw_second,
             frac_second: frac_second,
-            offset: offset
+            offset: raw_offset
         })
     }
 
     pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
-                                     hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
-                                     fractional_second: FractionalSecond, offset: OffsetValue,
-                                     writer: &mut W)
-                                     -> Result<usize, SerializationError> {
+                                          hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
+                                          fractional_second: FractionalSecond, offset: OffsetValue,
+                                          writer: &mut W)
+                                          -> Result<usize, SerializationError> {
         check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
         check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
         check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
@@ -225,36 +190,61 @@ impl DateTimeSubSecondOffset {
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        Self::serialize_components(self.year, self.month, self.day, self.hour, self.minute, self.second,
-                              self.frac_second, self.offset, writer)
+        Self::serialize_components(self.year(), self.month(), self.day(), self.hour(),
+                                   self.minute(), self.second(), self.frac_second, self.offset(),
+                                   writer)
     }
 }
 
 impl Date for DateTimeSubSecondOffset {
     fn year(&self) -> Option<u16> {
-        self.year
+        if self.year == YEAR_RAW_NONE {
+            None
+        } else {
+            Some(self.year)
+        }
     }
 
     fn month(&self) -> Option<u8> {
-        self.month
+        if self.month == MONTH_RAW_NONE {
+            None
+        } else {
+            Some(self.month + 1)
+        }
     }
 
     fn day(&self) -> Option<u8> {
-        self.day
+        if self.day == DAY_RAW_NONE {
+            None
+        } else {
+            Some(self.day + 1)
+        }
     }
 }
 
 impl Time for DateTimeSubSecondOffset {
     fn hour(&self) -> Option<u8> {
-        self.hour
+        if self.hour == HOUR_RAW_NONE {
+            None
+        } else {
+            Some(self.hour)
+        }
     }
 
     fn minute(&self) -> Option<u8> {
-        self.minute
+        if self.minute == MINUTE_RAW_NONE {
+            None
+        } else {
+            Some(self.minute)
+        }
     }
 
     fn second(&self) -> Option<u8> {
-        self.second
+        if self.second == SECOND_RAW_NONE {
+            None
+        } else {
+            Some(self.second)
+        }
     }
 }
 
@@ -266,7 +256,11 @@ impl SubSecond for DateTimeSubSecondOffset {
 
 impl Offset for DateTimeSubSecondOffset {
     fn offset(&self) -> OffsetValue {
-        self.offset
+        match self.offset {
+            127 => OffsetValue::None,
+            126 => OffsetValue::SpecifiedElsewhere,
+            x => OffsetValue::UtcOffset(((x as i16) - 64) * 15)
+        }
     }
 }
 

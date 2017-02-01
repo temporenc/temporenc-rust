@@ -5,9 +5,9 @@ use super::{Date, Serializable, DeserializationError, SerializationError, read_e
 
 #[derive(Debug)]
 pub struct DateOnly {
-    year: Option<u16>,
-    month: Option<u8>,
-    day: Option<u8>
+    year: u16,
+    month: u8,
+    day: u8
 }
 
 impl DateOnly {
@@ -24,39 +24,21 @@ impl DateOnly {
         // 3-bit tag, 12-bit year, 4-bit month, 5-bit day
         // TTTY YYYY YYYY YYYM MMMD DDDD
 
-        // bits 4-15
         let mut raw_year = ((byte0 & 0x1F) as u16) << 7;
         let byte1 = buf[1];
         raw_year |= (byte1 as u16) >> 1;
-        let year = if raw_year == YEAR_RAW_NONE {
-            None
-        } else {
-            Some(raw_year)
-        };
 
-        // bits 16-19
         let mut raw_month = (byte1 & 0x01) << 3;
         let byte2 = buf[2];
         raw_month |= (byte2 & 0xE0) >> 5;
-        let month = if raw_month == MONTH_RAW_NONE {
-            None
-        } else {
-            Some(raw_month + 1)
-        };
 
-        // bits 20-24
         let raw_day = byte2 & 0x1F;
-        let day = if raw_day == DAY_RAW_NONE {
-            None
-        } else {
-            Some(raw_day + 1)
-        };
 
         // TODO check types that don't saturate full range (e.g. month)
         Ok(DateOnly {
-            year: year,
-            month: month,
-            day: day
+            year: raw_year,
+            month: raw_month,
+            day: raw_day
         })
     }
 
@@ -78,21 +60,33 @@ impl DateOnly {
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        Self::serialize_components(self.year, self.month, self.day, writer)
+        Self::serialize_components(self.year(), self.month(), self.day(), writer)
     }
 }
 
 impl Date for DateOnly {
     fn year(&self) -> Option<u16> {
-        self.year
+        if self.year == YEAR_RAW_NONE {
+            None
+        } else {
+            Some(self.year)
+        }
     }
 
     fn month(&self) -> Option<u8> {
-        self.month
+        if self.month == MONTH_RAW_NONE {
+            None
+        } else {
+            Some(self.month + 1)
+        }
     }
 
     fn day(&self) -> Option<u8> {
-        self.day
+        if self.day == DAY_RAW_NONE {
+            None
+        } else {
+            Some(self.day + 1)
+        }
     }
 }
 

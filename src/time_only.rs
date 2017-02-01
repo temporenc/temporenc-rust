@@ -5,9 +5,9 @@ use super::{Serializable, Time, DeserializationError, SerializationError, read_e
 
 #[derive(Debug)]
 pub struct TimeOnly {
-    hour: Option<u8>,
-    minute: Option<u8>,
-    second: Option<u8>,
+    hour: u8,
+    minute: u8,
+    second: u8,
 }
 
 impl TimeOnly {
@@ -27,34 +27,19 @@ impl TimeOnly {
         let mut raw_hour = byte0 << 4;
         let byte1 = buf[1];
         raw_hour |= (byte1 & 0xF0) >> 4;
-        let hour = if raw_hour == HOUR_RAW_NONE {
-            None
-        } else {
-            Some(raw_hour)
-        };
 
         // bits 13-18
         let mut raw_minute = (byte1 & 0x0F) << 2;
         let byte2 = buf[2];
         raw_minute |= (byte2 & 0xC0) >> 6;
-        let minute = if raw_minute == MINUTE_RAW_NONE {
-            None
-        } else {
-            Some(raw_minute)
-        };
 
         // bits 19-24
         let raw_second = byte2 & 0x3F;
-        let second = if raw_second == SECOND_RAW_NONE {
-            None
-        } else {
-            Some(raw_second)
-        };
 
         Ok(TimeOnly {
-            hour: hour,
-            minute: minute,
-            second: second
+            hour: raw_hour,
+            minute: raw_minute,
+            second: raw_second
         })
     }
 
@@ -76,21 +61,33 @@ impl TimeOnly {
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        Self::serialize_components(self.hour, self.minute, self.second, writer)
+        Self::serialize_components(self.hour(), self.minute(), self.second(), writer)
     }
 }
 
 impl Time for TimeOnly {
     fn hour(&self) -> Option<u8> {
-        self.hour
+        if self.hour == HOUR_RAW_NONE {
+            None
+        } else {
+            Some(self.hour)
+        }
     }
 
     fn minute(&self) -> Option<u8> {
-        self.minute
+        if self.minute == MINUTE_RAW_NONE {
+            None
+        } else {
+            Some(self.minute)
+        }
     }
 
     fn second(&self) -> Option<u8> {
-        self.second
+        if self.second == SECOND_RAW_NONE {
+            None
+        } else {
+            Some(self.second)
+        }
     }
 }
 

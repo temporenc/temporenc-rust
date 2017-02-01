@@ -3,12 +3,12 @@ use std::io::{Read, Write};
 use super::{Serializable, Date, Time, SubSecond, DeserializationError, SerializationError, read_exact, check_option_outside_range, check_outside_range, write_array_map_err, TemporalField, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTS_MASK, PRECISION_DTS_MILLIS_TAG, PRECISION_DTS_MICROS_TAG, PRECISION_DTS_NANOS_TAG, PRECISION_DTS_NONE_TAG};
 
 pub struct DateTimeSubSecond {
-    year: Option<u16>,
-    month: Option<u8>,
-    day: Option<u8>,
-    hour: Option<u8>,
-    minute: Option<u8>,
-    second: Option<u8>,
+    year: u16,
+    month: u8,
+    day: u8,
+    hour: u8,
+    minute: u8,
+    second: u8,
     frac_second: FractionalSecond
 }
 
@@ -38,62 +38,23 @@ impl DateTimeSubSecond {
         // TTPP YYYY | YYYY YYYY | MMMM DDDD | DHHH HHMM
         // MMMM SSSS | SSFF FFFF | [0, 1, 2, or 3 subsecond bytes]
 
-        // bits 5-16
         let byte1 = buf[1];
         let mut raw_year = ((byte0 & 0x0F) as u16) << 8;
         raw_year |= byte1 as u16;
 
-        let year = if raw_year == YEAR_RAW_NONE {
-            None
-        } else {
-            Some(raw_year)
-        };
-
-        // bits 17-20
         let byte2 = buf[2];
         let raw_month = byte2 >> 4;
 
-        let month = if raw_month == MONTH_RAW_NONE {
-            None
-        } else {
-            Some(raw_month + 1)
-        };
-
-        // bits 21-25
         let byte3 = buf[3];
         let raw_day = ((byte2 & 0x0F) << 1) | (byte3 >> 7);
-        let day = if raw_day == DAY_RAW_NONE {
-            None
-        } else {
-            Some(raw_day + 1)
-        };
 
-        // bits 26-30
         let raw_hour = (byte3 & 0x7C) >> 2;
-        let hour = if raw_hour == HOUR_RAW_NONE {
-            None
-        } else {
-            Some(raw_hour)
-        };
 
-        // bits 31-36
         let byte4 = buf[4];
         let raw_minute = ((byte3 & 0x03) << 4) | (byte4 >> 4);
-        let minute = if raw_minute == MINUTE_RAW_NONE {
-            None
-        } else {
-            Some(raw_minute)
-        };
 
-        // bits 37-42
         let byte5 = buf[5];
         let raw_second = ((byte4 & 0x0F) << 2) | ((byte5 & 0xC0) >> 6);
-
-        let second = if raw_second == SECOND_RAW_NONE {
-            None
-        } else {
-            Some(raw_second)
-        };
 
         let frac_second = match precision {
             PrecisionTag::None => FractionalSecond::None,
@@ -124,12 +85,12 @@ impl DateTimeSubSecond {
         };
 
         Ok(DateTimeSubSecond {
-            year: year,
-            month: month,
-            day: day,
-            hour: hour,
-            minute: minute,
-            second: second,
+            year: raw_year,
+            month: raw_month,
+            day: raw_day,
+            hour: raw_hour,
+            minute: raw_minute,
+            second: raw_second,
             frac_second: frac_second
         })
     }
@@ -202,36 +163,59 @@ impl DateTimeSubSecond {
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        Self::serialize_components(self.year, self.month, self.day, self.hour, self.minute, self.second,
-                                   self.frac_second, writer)
+        Self::serialize_components(self.year(), self.month(), self.day(), self.hour(),
+                                   self.minute(), self.second(), self.frac_second, writer)
     }
 }
-
 impl Date for DateTimeSubSecond {
     fn year(&self) -> Option<u16> {
-        self.year
+        if self.year == YEAR_RAW_NONE {
+            None
+        } else {
+            Some(self.year)
+        }
     }
 
     fn month(&self) -> Option<u8> {
-        self.month
+        if self.month == MONTH_RAW_NONE {
+            None
+        } else {
+            Some(self.month + 1)
+        }
     }
 
     fn day(&self) -> Option<u8> {
-        self.day
+        if self.day == DAY_RAW_NONE {
+            None
+        } else {
+            Some(self.day + 1)
+        }
     }
 }
 
 impl Time for DateTimeSubSecond {
     fn hour(&self) -> Option<u8> {
-        self.hour
+        if self.hour == HOUR_RAW_NONE {
+            None
+        } else {
+            Some(self.hour)
+        }
     }
 
     fn minute(&self) -> Option<u8> {
-        self.minute
+        if self.minute == MINUTE_RAW_NONE {
+            None
+        } else {
+            Some(self.minute)
+        }
     }
 
     fn second(&self) -> Option<u8> {
-        self.second
+        if self.second == SECOND_RAW_NONE {
+            None
+        } else {
+            Some(self.second)
+        }
     }
 }
 
