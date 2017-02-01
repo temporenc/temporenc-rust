@@ -18,6 +18,7 @@ use temporenc::*;
 #[bench]
 fn deserialize_fixed_date_only(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateOnly::max_serialized_size());
+    let mut structs = Vec::with_capacity(NUM_ITEMS);
 
     let year = bb(Some(1000));
     let month = bb(Some(6));
@@ -32,14 +33,16 @@ fn deserialize_fixed_date_only(b: &mut Bencher) {
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
         for _ in 0..NUM_ITEMS {
-            DateOnly::deserialize(&mut cursor).unwrap();
+            structs.push(DateOnly::deserialize(&mut cursor).unwrap());
         }
+        structs.clear();
     })
 }
 
 #[bench]
 fn deserialize_fixed_time_only(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * TimeOnly::max_serialized_size());
+    let mut structs = Vec::with_capacity(NUM_ITEMS);
 
     let hour = bb(Some(12));
     let minute = bb(Some(30));
@@ -54,14 +57,16 @@ fn deserialize_fixed_time_only(b: &mut Bencher) {
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
         for _ in 0..NUM_ITEMS {
-            TimeOnly::deserialize(&mut cursor).unwrap();
+            structs.push(TimeOnly::deserialize(&mut cursor).unwrap());
         }
+        structs.clear();
     })
 }
 
 #[bench]
 fn deserialize_fixed_date_time(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTime::max_serialized_size());
+    let mut structs = Vec::with_capacity(NUM_ITEMS);
 
     let year = bb(Some(1000));
     let month = bb(Some(6));
@@ -79,14 +84,16 @@ fn deserialize_fixed_date_time(b: &mut Bencher) {
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
         for _ in 0..NUM_ITEMS {
-            DateTime::deserialize(&mut cursor).unwrap();
+            structs.push(DateTime::deserialize(&mut cursor).unwrap());
         }
+        structs.clear();
     })
 }
 
 #[bench]
 fn deserialize_fixed_date_time_offset(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeOffset::max_serialized_size());
+    let mut structs = Vec::with_capacity(NUM_ITEMS);
 
     let year = bb(Some(1000));
     let month = bb(Some(6));
@@ -106,14 +113,16 @@ fn deserialize_fixed_date_time_offset(b: &mut Bencher) {
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
         for _ in 0..NUM_ITEMS {
-            DateTimeOffset::deserialize(&mut cursor).unwrap();
+            structs.push(DateTimeOffset::deserialize(&mut cursor).unwrap());
         }
+        structs.clear();
     })
 }
 
 #[bench]
 fn deserialize_fixed_date_time_subsecond_ns(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecond::max_serialized_size());
+    let mut structs = Vec::with_capacity(NUM_ITEMS);
 
     let year = bb(Some(1000));
     let month = bb(Some(6));
@@ -133,14 +142,16 @@ fn deserialize_fixed_date_time_subsecond_ns(b: &mut Bencher) {
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
         for _ in 0..NUM_ITEMS {
-            DateTimeSubSecond::deserialize(&mut cursor).unwrap();
+            structs.push(DateTimeSubSecond::deserialize(&mut cursor).unwrap());
         }
+        structs.clear();
     })
 }
 
 #[bench]
 fn deserialize_fixed_date_time_subsecond_ns_offset(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecondOffset::max_serialized_size());
+    let mut structs = Vec::with_capacity(NUM_ITEMS);
 
     let year = bb(Some(1000));
     let month = bb(Some(6));
@@ -161,7 +172,8 @@ fn deserialize_fixed_date_time_subsecond_ns_offset(b: &mut Bencher) {
     b.iter(|| {
         let mut cursor = Cursor::new(v.as_slice());
         for _ in 0..NUM_ITEMS {
-            DateTimeSubSecondOffset::deserialize(&mut cursor).unwrap();
+            structs.push(DateTimeSubSecondOffset::deserialize(&mut cursor).unwrap());
         }
+        structs.clear();
     })
 }
