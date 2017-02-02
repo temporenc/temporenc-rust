@@ -1,7 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, Offset, DeserializationError, SerializationError, read_exact, check_option_in_range, write_array_map_err, encode_offset_num, check_deser_in_range_or_none, OffsetValue, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, MONTH_RAW_MIN, MONTH_RAW_MAX};
-
+use super::{Serializable, Date, Time, Offset, DeserializationError, SerializationError, ComponentSerializationError, read_exact, check_option_in_range, write_array_map_err, encode_offset_num, check_deser_in_range_or_none, OffsetValue, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, MONTH_RAW_MIN, MONTH_RAW_MAX};
 
 #[derive(Debug)]
 pub struct DateTimeOffset {
@@ -71,7 +70,7 @@ impl DateTimeOffset {
     pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
                                           hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
                                           offset: OffsetValue, writer: &mut W)
-                                          -> Result<usize, SerializationError> {
+                                          -> Result<usize, ComponentSerializationError> {
         check_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
         check_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
         check_option_in_range(day, DAY_MIN, DAY_MAX)?;
@@ -96,12 +95,14 @@ impl DateTimeOffset {
         let b5 = (second_num << 7) | offset_num;
 
         write_array_map_err(&[b0, b1, b2, b3, b4, b5], writer)
+            .map_err(|_| ComponentSerializationError::IoError)
     }
 
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
         Self::serialize_components(self.year(), self.month(), self.day(), self.hour(),
                                    self.minute(), self.second(), self.offset(), writer)
+            .map_err(|_| SerializationError::IoError)
     }
 }
 

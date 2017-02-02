@@ -1,6 +1,6 @@
-use std::io::{Read, Write};
+use std::io::{Read, Write, Error};
 
-use super::{Serializable, Date, Time, DeserializationError, SerializationError, read_exact, check_option_in_range, write_array_map_err, check_deser_in_range_or_none, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, MONTH_RAW_MIN, MONTH_RAW_MAX};
+use super::{Serializable, Date, Time, DeserializationError, SerializationError, ComponentSerializationError, CreationError, read_exact, check_option_in_range, check_new_option_in_range, write_array_map_err, check_deser_in_range_or_none, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, MONTH_RAW_MIN, MONTH_RAW_MAX};
 
 
 #[derive(Debug)]
@@ -14,6 +14,27 @@ pub struct DateTime {
 }
 
 impl DateTime {
+    pub fn new(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
+               minute: Option<u8>, second: Option<u8>) -> Result<DateTime, CreationError> {
+        check_new_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
+        check_new_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
+        check_new_option_in_range(day, DAY_MIN, DAY_MAX)?;
+
+        check_new_option_in_range(hour, HOUR_MIN, HOUR_MAX)?;
+        check_new_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
+        check_new_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
+
+        Ok(DateTime {
+            // TODO centralize logic for mapping Options to numbers
+            year: year.unwrap_or(YEAR_RAW_NONE),
+            month: month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE),
+            day: day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE),
+            hour: hour.unwrap_or(HOUR_RAW_NONE),
+            minute: minute.unwrap_or(MINUTE_RAW_NONE),
+            second: second.unwrap_or(SECOND_RAW_NONE)
+        })
+    }
+
     pub fn deserialize<R: Read>(reader: &mut R) -> Result<DateTime, DeserializationError> {
         let mut buf = [0; SERIALIZED_SIZE];
         read_exact(reader, &mut buf)?;
@@ -63,7 +84,7 @@ impl DateTime {
 
     pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
                                           hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
-                                          writer: &mut W) -> Result<usize, SerializationError> {
+                                          writer: &mut W) -> Result<usize, ComponentSerializationError> {
         check_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
         check_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
         check_option_in_range(day, DAY_MIN, DAY_MAX)?;
@@ -78,18 +99,25 @@ impl DateTime {
         let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
         let second_num = second.unwrap_or(SECOND_RAW_NONE);
 
-        let b0 = DATE_TIME_TAG | (year_num >> 6) as u8;
-        let b1 = ((year_num << 2) as u8) | (month_num >> 2);
-        let b2 = (month_num << 6) | (day_num << 1) | (hour_num >> 4);
-        let b3 = (hour_num << 4) | (minute_num >> 2);
-        let b4 = (minute_num << 6) | second_num;
-
-        write_array_map_err(&[b0, b1, b2, b3, b4], writer)
+        Self::serialize_raw(year_num, month_num, day_num, hour_num, minute_num, second_num, writer)
+            .map_err(|_| ComponentSerializationError::IoError)
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        Self::serialize_components(self.year(), self.month(), self.day(), self.hour(),
-                                   self.minute(), self.second(), writer)
+        Self::serialize_raw(self.year, self.month, self.day, self.hour, self.minute, self.second,
+                            writer)
+            .map_err(|_| SerializationError::IoError)
+    }
+
+    fn serialize_raw<W: Write>(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8,
+                               writer: &mut W) -> Result<usize, Error> {
+        let b0 = DATE_TIME_TAG | (year >> 6) as u8;
+        let b1 = ((year << 2) as u8) | (month >> 2);
+        let b2 = (month << 6) | (day << 1) | (hour >> 4);
+        let b3 = (hour << 4) | (minute >> 2);
+        let b4 = (minute << 6) | second;
+
+        write_array_map_err(&[b0, b1, b2, b3, b4], writer)
     }
 }
 

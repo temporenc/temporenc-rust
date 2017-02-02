@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, SubSecond, Offset, DeserializationError, SerializationError, read_exact, check_option_in_range, check_in_range, write_array_map_err, encode_offset_num, check_deser_in_range, check_deser_in_range_or_none, OffsetValue, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTSO_MASK, PRECISION_DTSO_MILLIS_TAG, PRECISION_DTSO_MICROS_TAG, PRECISION_DTSO_NANOS_TAG, PRECISION_DTSO_NONE_TAG, MONTH_RAW_MIN, MONTH_RAW_MAX};
+use super::{Serializable, Date, Time, SubSecond, Offset, DeserializationError, SerializationError, ComponentSerializationError, read_exact, check_option_in_range, check_in_range, write_array_map_err, encode_offset_num, check_deser_in_range, check_deser_in_range_or_none, OffsetValue, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTSO_MASK, PRECISION_DTSO_MILLIS_TAG, PRECISION_DTSO_MICROS_TAG, PRECISION_DTSO_NANOS_TAG, PRECISION_DTSO_NONE_TAG, MONTH_RAW_MIN, MONTH_RAW_MAX};
 
 #[derive(Debug)]
 pub struct DateTimeSubSecondOffset {
@@ -128,7 +128,7 @@ impl DateTimeSubSecondOffset {
                                           hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
                                           fractional_second: FractionalSecond, offset: OffsetValue,
                                           writer: &mut W)
-                                          -> Result<usize, SerializationError> {
+                                          -> Result<usize, ComponentSerializationError> {
         check_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
         check_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
         check_option_in_range(day, DAY_MIN, DAY_MAX)?;
@@ -198,12 +198,14 @@ impl DateTimeSubSecondOffset {
         };
 
         write_array_map_err(&buf[0..slice_end_index], writer)
+            .map_err(|_| ComponentSerializationError::IoError)
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
         Self::serialize_components(self.year(), self.month(), self.day(), self.hour(),
                                    self.minute(), self.second(), self.frac_second, self.offset(),
                                    writer)
+            .map_err(|_| SerializationError::IoError)
     }
 }
 

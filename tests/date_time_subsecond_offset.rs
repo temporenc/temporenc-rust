@@ -153,7 +153,6 @@ fn roundtrip_dtso_all_random() {
     }
 }
 
-
 fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
                        minute: Option<u8>, second: Option<u8>, frac_second: FractionalSecond,
                        offset: OffsetValue, vec: &mut Vec<u8>) {

@@ -1,6 +1,6 @@
-use std::io::{Read, Write};
+use std::io::{Read, Write, Error};
 
-use super::{Serializable, Time, DeserializationError, SerializationError, read_exact, check_option_in_range, write_array_map_err, check_deser_in_range_or_none, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
+use super::{Serializable, Time, DeserializationError, SerializationError, ComponentSerializationError, CreationError, read_exact, check_option_in_range, write_array_map_err, check_deser_in_range_or_none, check_new_option_in_range, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -11,6 +11,18 @@ pub struct TimeOnly {
 }
 
 impl TimeOnly {
+    pub fn new(hour: Option<u8>, minute: Option<u8>, second: Option<u8>) -> Result<TimeOnly, CreationError> {
+        check_new_option_in_range(hour, HOUR_MIN, HOUR_MAX)?;
+        check_new_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
+        check_new_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
+
+        Ok(TimeOnly {
+            hour: hour.unwrap_or(HOUR_RAW_NONE),
+            minute: minute.unwrap_or(MINUTE_RAW_NONE),
+            second: second.unwrap_or(SECOND_RAW_NONE)
+        })
+    }
+
     pub fn deserialize<R: Read>(reader: &mut R) -> Result<TimeOnly, DeserializationError> {
         let mut buf = [0; SERIALIZED_SIZE];
         read_exact(reader, &mut buf)?;
@@ -45,7 +57,7 @@ impl TimeOnly {
     }
 
     pub fn serialize_components<W: Write>(hour: Option<u8>, minute: Option<u8>, second: Option<u8>, writer: &mut W)
-                                      -> Result<usize, SerializationError> {
+                                          -> Result<usize, ComponentSerializationError> {
         check_option_in_range(hour, HOUR_MIN, HOUR_MAX)?;
         check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
         check_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
@@ -54,15 +66,21 @@ impl TimeOnly {
         let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
         let second_num = second.unwrap_or(SECOND_RAW_NONE);
 
-        let b0 = TIME_TAG | hour_num >> 4;
-        let b1 = (hour_num << 4) | (minute_num >> 2);
-        let b2 = (minute_num << 6) | (second_num);
-
-        write_array_map_err(&[b0, b1, b2], writer)
+        Self::serialize_raw(hour_num, minute_num, second_num, writer)
+            .map_err(|_| ComponentSerializationError::IoError)
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        Self::serialize_components(self.hour(), self.minute(), self.second(), writer)
+        Self::serialize_raw(self.hour, self.minute, self.second, writer)
+            .map_err(|_| SerializationError::IoError)
+    }
+
+    fn serialize_raw<W: Write>(hour: u8, minute: u8, second: u8, writer: &mut W) -> Result<usize, Error> {
+        let b0 = TIME_TAG | hour >> 4;
+        let b1 = (hour << 4) | (minute >> 2);
+        let b2 = (minute << 6) | (second);
+
+        write_array_map_err(&[b0, b1, b2], writer)
     }
 }
 

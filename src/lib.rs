@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{Read, Write, Error};
 
 pub trait Serializable {
     /// The largest encoded size of any instance of the type
@@ -66,15 +66,25 @@ pub use date_time_subsecond::DateTimeSubSecond;
 pub use date_time_subsecond_offset::DateTimeSubSecondOffset;
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum CreationError {
+    InvalidFieldValue,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum DeserializationError {
     InvalidFieldValue,
     IoError,
     IncorrectTypeTag,
-    IncorrectPrecisionTag
+    IncorrectPrecisionTag,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SerializationError {
+    IoError
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ComponentSerializationError {
     InvalidFieldValue,
     IoError
 }
@@ -160,12 +170,12 @@ fn read_exact<R: Read>(reader: &mut R, buf: &mut [u8]) -> Result<(), Deserializa
     reader.read_exact(buf).map_err(|_| DeserializationError::IoError)
 }
 
-fn write_array_map_err<W: Write>(bytes: &[u8], writer: &mut W) -> Result<usize, SerializationError> {
-    writer.write_all(bytes).map_err(|_| SerializationError::IoError).map(|_| bytes.len())
+fn write_array_map_err<W: Write>(bytes: &[u8], writer: &mut W) -> Result<usize, Error> {
+    writer.write_all(bytes).map(|_| bytes.len())
 }
 
 fn check_option_in_range<T: PartialOrd>(val: Option<T>, min: T, max: T)
-                                        -> Result<(), SerializationError> {
+                                        -> Result<(), ComponentSerializationError> {
     if let Some(v) = val {
         return check_in_range(v, min, max);
     }
@@ -174,9 +184,26 @@ fn check_option_in_range<T: PartialOrd>(val: Option<T>, min: T, max: T)
 }
 
 fn check_in_range<T: PartialOrd>(v: T, min: T, max: T)
-                                 -> Result<(), SerializationError> {
+                                 -> Result<(), ComponentSerializationError> {
     if v < min || v > max {
-        return Err(SerializationError::InvalidFieldValue)
+        return Err(ComponentSerializationError::InvalidFieldValue)
+    }
+
+    Ok(())
+}
+
+fn check_new_option_in_range<T: PartialOrd>(val: Option<T>, min: T, max: T)
+                                            -> Result<(), CreationError> {
+    if let Some(v) = val {
+        return check_new_in_range(v, min, max);
+    }
+
+    Ok(())
+}
+fn check_new_in_range<T: PartialOrd>(v: T, min: T, max: T)
+                                     -> Result<(), CreationError> {
+    if v < min || v > max {
+        return Err(CreationError::InvalidFieldValue)
     }
 
     Ok(())
@@ -201,7 +228,7 @@ fn check_deser_in_range_or_none<T: PartialOrd>(v: T, min: T, max: T, none: T) ->
 
 // As of 1.14, 3x speed boost on serialization benchmarks with this inline
 #[inline]
-fn encode_offset_num(offset: OffsetValue) -> Result<u8, SerializationError> {
+fn encode_offset_num(offset: OffsetValue) -> Result<u8, ComponentSerializationError> {
     match offset {
         OffsetValue::None => Ok(OFFSET_RAW_NONE),
         OffsetValue::SpecifiedElsewhere => Ok(OFFSET_RAW_ELSEWHERE),
@@ -209,7 +236,7 @@ fn encode_offset_num(offset: OffsetValue) -> Result<u8, SerializationError> {
             check_in_range(o, OFFSET_MIN, OFFSET_MAX)?;
 
             if o % 15 != 0 {
-                return Err(SerializationError::InvalidFieldValue);
+                return Err(ComponentSerializationError::InvalidFieldValue);
             };
 
             Ok(((o / 15) + 64) as u8)

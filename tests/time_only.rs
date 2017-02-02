@@ -46,19 +46,64 @@ fn deser_time_too_short() {
 }
 
 #[test]
-fn time_roundtrip() {
+fn time_roundtrip_components() {
     let mut vec = Vec::new();
 
     for hour in once(None).chain((HOUR_MIN..(HOUR_MAX + 1)).map(|h| Some(h))) {
         for minute in once(None).chain((MINUTE_MIN..(MINUTE_MAX + 1)).map(|m| Some(m))) {
             for second in once(None).chain((SECOND_MIN..(SECOND_MAX + 1)).map(|s| Some(s))) {
                 vec.clear();
-                assert_eq!(3, TimeOnly::serialize_components(hour, minute, second, &mut vec).unwrap());
-                let time = TimeOnly::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
+                let bytes_written = TimeOnly::serialize_components(hour, minute, second, &mut vec).unwrap();
+                assert_eq!(3, bytes_written);
+                assert_eq!(bytes_written, vec.len());
+                let deser = TimeOnly::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
 
-                assert_eq!(hour, time.hour());
-                assert_eq!(minute, time.minute());
-                assert_eq!(second, time.second());
+                assert_eq!(hour, deser.hour());
+                assert_eq!(minute, deser.minute());
+                assert_eq!(second, deser.second());
+            };
+        };
+    }
+}
+
+#[test]
+fn time_roundtrip_struct() {
+    let mut vec = Vec::new();
+
+    for hour in once(None).chain((HOUR_MIN..(HOUR_MAX + 1)).map(|h| Some(h))) {
+        for minute in once(None).chain((MINUTE_MIN..(MINUTE_MAX + 1)).map(|m| Some(m))) {
+            for second in once(None).chain((SECOND_MIN..(SECOND_MAX + 1)).map(|s| Some(s))) {
+                vec.clear();
+                let new = TimeOnly::new(hour, minute, second).unwrap();
+                let bytes_written = new.serialize(&mut vec).unwrap();
+                assert_eq!(3, bytes_written);
+                assert_eq!(3, new.serialized_size());
+                assert_eq!(bytes_written, vec.len());
+                let deser = TimeOnly::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
+
+                assert_eq!(hour, deser.hour());
+                assert_eq!(minute, deser.minute());
+                assert_eq!(second, deser.second());
+            };
+        };
+    }
+}
+
+#[test]
+fn time_serialize_struct_matches_component() {
+    let mut vec_components = Vec::new();
+    let mut vec_struct = Vec::new();
+
+    for hour in once(None).chain((HOUR_MIN..(HOUR_MAX + 1)).map(|h| Some(h))) {
+        for minute in once(None).chain((MINUTE_MIN..(MINUTE_MAX + 1)).map(|m| Some(m))) {
+            for second in once(None).chain((SECOND_MIN..(SECOND_MAX + 1)).map(|s| Some(s))) {
+                vec_components.clear();
+                TimeOnly::serialize_components(hour, minute, second, &mut vec_components).unwrap();
+
+                vec_struct.clear();
+                TimeOnly::new(hour, minute, second).unwrap().serialize(&mut vec_struct).unwrap();
+
+                assert_eq!(vec_components, vec_struct);
             };
         };
     }
