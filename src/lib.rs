@@ -67,6 +67,7 @@ pub use date_time_subsecond_offset::DateTimeSubSecondOffset;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DeserializationError {
+    InvalidFieldValue,
     IoError,
     IncorrectTypeTag,
     IncorrectPrecisionTag
@@ -74,20 +75,8 @@ pub enum DeserializationError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SerializationError {
-    InvalidFieldValue(TemporalField),
+    InvalidFieldValue,
     IoError
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum TemporalField {
-    Year,
-    Month,
-    Day,
-    Hour,
-    Minute,
-    Second,
-    FractionalSecond,
-    Offset
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -119,6 +108,10 @@ pub const NANOS_MIN: u32 = 0;
 pub const NANOS_MAX: u32 = 999_999_999;
 pub const OFFSET_MIN: i16 = -(64 * 15);
 pub const OFFSET_MAX: i16 = (125 - 64) * 15;
+
+// for when encoded form has different limits
+const MONTH_RAW_MIN: u8 = 0;
+const MONTH_RAW_MAX: u8 = 11;
 
 // type tags, expanded to include the rest of the byte
 // 3 bits
@@ -171,22 +164,39 @@ fn write_array_map_err<W: Write>(bytes: &[u8], writer: &mut W) -> Result<usize, 
     writer.write_all(bytes).map_err(|_| SerializationError::IoError).map(|_| bytes.len())
 }
 
-fn check_option_outside_range<T: PartialOrd>(val: Option<T>, min: T, max: T, field: TemporalField)
-                                             -> Result<(), SerializationError> {
+fn check_option_in_range<T: PartialOrd>(val: Option<T>, min: T, max: T)
+                                        -> Result<(), SerializationError> {
     if let Some(v) = val {
-        return check_outside_range(v, min, max, field);
+        return check_in_range(v, min, max);
     }
 
     Ok(())
 }
 
-fn check_outside_range<T: PartialOrd>(v: T, min: T, max: T, field: TemporalField)
-                                      -> Result<(), SerializationError> {
+fn check_in_range<T: PartialOrd>(v: T, min: T, max: T)
+                                 -> Result<(), SerializationError> {
     if v < min || v > max {
-        return Err(SerializationError::InvalidFieldValue(field))
+        return Err(SerializationError::InvalidFieldValue)
     }
 
     Ok(())
+}
+
+fn check_deser_in_range<T: PartialOrd + std::fmt::Debug>(v: T, min: T, max: T)
+                                      -> Result<(), DeserializationError> {
+    if v < min || v > max {
+        return Err(DeserializationError::InvalidFieldValue)
+    }
+
+    Ok(())
+}
+
+fn check_deser_in_range_or_none<T: PartialOrd>(v: T, min: T, max: T, none: T) -> Result<(), DeserializationError> {
+    if (v >= min && v <= max) || v == none {
+        Ok(())
+    } else {
+        Err(DeserializationError::InvalidFieldValue)
+    }
 }
 
 // As of 1.14, 3x speed boost on serialization benchmarks with this inline
@@ -196,10 +206,10 @@ fn encode_offset_num(offset: OffsetValue) -> Result<u8, SerializationError> {
         OffsetValue::None => Ok(OFFSET_RAW_NONE),
         OffsetValue::SpecifiedElsewhere => Ok(OFFSET_RAW_ELSEWHERE),
         OffsetValue::UtcOffset(o) => {
-            check_outside_range(o, OFFSET_MIN, OFFSET_MAX, TemporalField::Offset)?;
+            check_in_range(o, OFFSET_MIN, OFFSET_MAX)?;
 
             if o % 15 != 0 {
-                return Err(SerializationError::InvalidFieldValue(TemporalField::Offset));
+                return Err(SerializationError::InvalidFieldValue);
             };
 
             Ok(((o / 15) + 64) as u8)

@@ -171,6 +171,8 @@ fn serialize_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, ho
     assert_eq!(minute, dt.minute());
     assert_eq!(second, dt.second());
 
+    assert_eq!(frac_second, dt.fractional_second());
+
     assert_eq!(offset, dt.offset());
 }
 

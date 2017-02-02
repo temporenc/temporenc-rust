@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, DeserializationError, SerializationError, read_exact, check_option_outside_range, write_array_map_err, TemporalField, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
+use super::{Serializable, Date, Time, DeserializationError, SerializationError, read_exact, check_option_in_range, write_array_map_err, check_deser_in_range_or_none, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, MONTH_RAW_MIN, MONTH_RAW_MAX};
 
 
 #[derive(Debug)]
@@ -44,6 +44,13 @@ impl DateTime {
 
         let raw_second = byte4 & 0x3F;
 
+        // no need to check year as every possible number is a valid year
+        check_deser_in_range_or_none(raw_month, MONTH_RAW_MIN, MONTH_RAW_MAX, MONTH_RAW_NONE)?;
+        // no need to check day as every possible number is a valid day
+        check_deser_in_range_or_none(raw_hour, HOUR_MIN, HOUR_MAX, HOUR_RAW_NONE)?;
+        check_deser_in_range_or_none(raw_minute, MINUTE_MIN, MINUTE_MAX, MINUTE_RAW_NONE)?;
+        check_deser_in_range_or_none(raw_second, SECOND_MIN, SECOND_MAX, SECOND_RAW_NONE)?;
+
         Ok(DateTime {
             year: raw_year,
             month: raw_month,
@@ -57,12 +64,12 @@ impl DateTime {
     pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
                                           hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
                                           writer: &mut W) -> Result<usize, SerializationError> {
-        check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
-        check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
-        check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
-        check_option_outside_range(hour, HOUR_MIN, HOUR_MAX, TemporalField::Hour)?;
-        check_option_outside_range(minute, MINUTE_MIN, MINUTE_MAX, TemporalField::Minute)?;
-        check_option_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
+        check_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
+        check_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
+        check_option_in_range(day, DAY_MIN, DAY_MAX)?;
+        check_option_in_range(hour, HOUR_MIN, HOUR_MAX)?;
+        check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
+        check_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
 
         let year_num = year.unwrap_or(YEAR_RAW_NONE);
         let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);

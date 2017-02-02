@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, SubSecond, Offset, DeserializationError, SerializationError, read_exact, check_option_outside_range, check_outside_range, write_array_map_err, encode_offset_num, TemporalField, OffsetValue, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTSO_MASK, PRECISION_DTSO_MILLIS_TAG, PRECISION_DTSO_MICROS_TAG, PRECISION_DTSO_NANOS_TAG, PRECISION_DTSO_NONE_TAG};
+use super::{Serializable, Date, Time, SubSecond, Offset, DeserializationError, SerializationError, read_exact, check_option_in_range, check_in_range, write_array_map_err, encode_offset_num, check_deser_in_range, check_deser_in_range_or_none, OffsetValue, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTSO_MASK, PRECISION_DTSO_MILLIS_TAG, PRECISION_DTSO_MICROS_TAG, PRECISION_DTSO_NANOS_TAG, PRECISION_DTSO_NONE_TAG, MONTH_RAW_MIN, MONTH_RAW_MAX};
 
 #[derive(Debug)]
 pub struct DateTimeSubSecondOffset {
@@ -69,6 +69,7 @@ impl DateTimeSubSecondOffset {
                 let byte6 = buf[6];
                 ms |= (byte6 >> 3) as u16;
 
+                check_deser_in_range(ms, MILLIS_MIN, MILLIS_MAX)?;
                 (FractionalSecond::Milliseconds(ms), byte6)
             }
             PrecisionTag::Micro => {
@@ -78,17 +79,19 @@ impl DateTimeSubSecondOffset {
                 let byte7 = buf[7];
                 us |= (byte7 >> 1) as u32;
 
+                check_deser_in_range(us, MICROS_MIN, MICROS_MAX)?;
                 (FractionalSecond::Microseconds(us), byte7)
             }
             PrecisionTag::Nano => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..MAX_SERIALIZED_SIZE])?;
-                let mut ns = ((byte5 & 0x3F) as u32) << 25;
+                let mut ns = ((byte5 & 0x1F) as u32) << 25;
                 ns |= (buf[6] as u32) << 17;
                 ns |= (buf[7] as u32) << 9;
                 ns |= (buf[8] as u32) << 1;
                 let byte9 = buf[9];
                 ns |= (byte9 >> 7) as u32;
 
+                check_deser_in_range(ns, NANOS_MIN, NANOS_MAX)?;
                 (FractionalSecond::Nanoseconds(ns), byte9)
             },
             PrecisionTag::None => (FractionalSecond::None, byte5),
@@ -100,6 +103,14 @@ impl DateTimeSubSecondOffset {
             PrecisionTag::Nano => last_variable_byte & 0x7F,
             PrecisionTag::None => ((last_variable_byte & 0x1F) << 2) | (buf[6] >> 6),
         };
+
+        // no need to check year as every possible number is a valid year
+        check_deser_in_range_or_none(raw_month, MONTH_RAW_MIN, MONTH_RAW_MAX, MONTH_RAW_NONE)?;
+        // no need to check day as every possible number is a valid day
+        check_deser_in_range_or_none(raw_hour, HOUR_MIN, HOUR_MAX, HOUR_RAW_NONE)?;
+        check_deser_in_range_or_none(raw_minute, MINUTE_MIN, MINUTE_MAX, MINUTE_RAW_NONE)?;
+        check_deser_in_range_or_none(raw_second, SECOND_MIN, SECOND_MAX, SECOND_RAW_NONE)?;
+        // no need to check offset as every possible number is a valid offset
 
         Ok(DateTimeSubSecondOffset {
             year: raw_year,
@@ -118,26 +129,26 @@ impl DateTimeSubSecondOffset {
                                           fractional_second: FractionalSecond, offset: OffsetValue,
                                           writer: &mut W)
                                           -> Result<usize, SerializationError> {
-        check_option_outside_range(year, YEAR_MIN, YEAR_MAX, TemporalField::Year)?;
-        check_option_outside_range(month, MONTH_MIN, MONTH_MAX, TemporalField::Month)?;
-        check_option_outside_range(day, DAY_MIN, DAY_MAX, TemporalField::Day)?;
-        check_option_outside_range(hour, HOUR_MIN, HOUR_MAX, TemporalField::Hour)?;
-        check_option_outside_range(minute, MINUTE_MIN, MINUTE_MAX, TemporalField::Minute)?;
-        check_option_outside_range(second, SECOND_MIN, SECOND_MAX, TemporalField::Second)?;
+        check_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
+        check_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
+        check_option_in_range(day, DAY_MIN, DAY_MAX)?;
+        check_option_in_range(hour, HOUR_MIN, HOUR_MAX)?;
+        check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
+        check_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
 
         let offset_num = encode_offset_num(offset)?;
 
         let (precision_tag, first_var_length_byte_fragment) = match fractional_second {
             FractionalSecond::Milliseconds(ms) => {
-                check_outside_range(ms, MILLIS_MIN, MILLIS_MAX, TemporalField::FractionalSecond)?;
+                check_in_range(ms, MILLIS_MIN, MILLIS_MAX)?;
                 (PRECISION_DTSO_MILLIS_TAG, (ms >> 5) as u8)
             },
             FractionalSecond::Microseconds(us) => {
-                check_outside_range(us, MICROS_MIN, MICROS_MAX, TemporalField::FractionalSecond)?;
+                check_in_range(us, MICROS_MIN, MICROS_MAX)?;
                 (PRECISION_DTSO_MICROS_TAG, (us >> 15) as u8)
             },
             FractionalSecond::Nanoseconds(ns) => {
-                check_outside_range(ns, NANOS_MIN, NANOS_MAX, TemporalField::FractionalSecond)?;
+                check_in_range(ns, NANOS_MIN, NANOS_MAX)?;
                 (PRECISION_DTSO_NANOS_TAG, (ns >> 25) as u8)
             },
             FractionalSecond::None => (PRECISION_DTSO_NONE_TAG, offset_num >> 2),
