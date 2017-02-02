@@ -57,6 +57,7 @@ mod date_time;
 mod date_time_offset;
 mod date_time_subsecond;
 mod date_time_subsecond_offset;
+mod polymorphic;
 
 pub use date_only::DateOnly;
 pub use time_only::TimeOnly;
@@ -95,6 +96,16 @@ enum PrecisionTag {
     Micro,
     Nano,
     None
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Type {
+    Date,
+    Time,
+    DateTime,
+    DateTimeOffset,
+    DateTimeSubSecond,
+    DateTimeSubSecondOffset,
 }
 
 // human-visible range ends (not necessarily internal encoding)
