@@ -147,22 +147,16 @@ impl DateTimeSubSecondOffset {
         })
     }
 
-    pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
-                                          hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
-                                          fractional_second: FractionalSecond, offset: OffsetValue,
-                                          writer: &mut W)
+    pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>,
+                                          day: Option<u8>, hour: Option<u8>,
+                                          minute: Option<u8>, second: Option<u8>,
+                                          frac_second: FractionalSecond,
+                                          offset: OffsetValue, writer: &mut W)
                                           -> Result<usize, ComponentSerializationError> {
         let err_val = ComponentSerializationError::InvalidFieldValue;
-
-        let year_num = year_num(year, err_val)?;
-        let month_num = month_num(month, err_val)?;
-        let day_num = day_num(day, err_val)?;
-        let hour_num = hour_num(hour, err_val)?;
-        let minute_num = minute_num(minute, err_val)?;
-        let second_num = second_num(second, err_val)?;
         let offset_num = offset_num(offset, err_val)?;
 
-        let (precision_tag, first_var_length_byte_fragment) = match fractional_second {
+        let (precision_tag, first_var_length_byte_fragment) = match frac_second {
             FractionalSecond::Milliseconds(ms) => {
                 check_in_range(ms, MILLIS_MIN, MILLIS_MAX, err_val)?;
                 (PRECISION_DTSO_MILLIS_TAG, (ms >> 5) as u8)
@@ -178,51 +172,76 @@ impl DateTimeSubSecondOffset {
             FractionalSecond::None => (PRECISION_DTSO_NONE_TAG, offset_num >> 2),
         };
 
-        let b0 = DATE_TIME_SUBSECOND_OFFSET_TAG | precision_tag | (year_num >> 9) as u8;
-        let b1 = (year_num >> 1) as u8;
-        let b2 = (year_num << 7) as u8 | (month_num << 3) | (day_num >> 2);
-        let b3 = (day_num << 6) | (hour_num << 1) | (minute_num >> 5);
-        let b4 = (minute_num << 3) | (second_num >> 3);
-        let b5 = (second_num << 5) | first_var_length_byte_fragment;
+        Self::serialize_raw(year_num(year, err_val)?, month_num(month, err_val)?,
+                            day_num(day, err_val)?, hour_num(hour, err_val)?,
+                            minute_num(minute, err_val)?, second_num(second, err_val)?,
+                            frac_second, offset_num, precision_tag,
+                            first_var_length_byte_fragment, writer)
+            .map_err(|_| ComponentSerializationError::IoError)
+    }
+
+    pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
+        let (precision_tag, first_var_length_byte_fragment) = match self.frac_second {
+            FractionalSecond::Milliseconds(ms) => {
+                (PRECISION_DTSO_MILLIS_TAG, (ms >> 5) as u8)
+            },
+            FractionalSecond::Microseconds(us) => {
+                (PRECISION_DTSO_MICROS_TAG, (us >> 15) as u8)
+            },
+            FractionalSecond::Nanoseconds(ns) => {
+                (PRECISION_DTSO_NANOS_TAG, (ns >> 25) as u8)
+            },
+            FractionalSecond::None => (PRECISION_DTSO_NONE_TAG, self.offset >> 2),
+        };
+
+        Self::serialize_raw(self.year, self.month, self.day, self.hour, self.minute,
+                            self.second, self.frac_second, self.offset, precision_tag,
+                            first_var_length_byte_fragment, writer)
+            .map_err(|_| SerializationError::IoError)
+    }
+
+    fn serialize_raw<W: Write>(year: u16, month: u8, day: u8, hour: u8, minute: u8,
+                               second: u8, frac_second: FractionalSecond,
+                               offset: u8, precision_tag: u8,
+                               first_var_length_byte_fragment: u8, writer: &mut W)
+                               -> Result<usize, Error> {
+        let b0 = DATE_TIME_SUBSECOND_OFFSET_TAG | precision_tag | (year >> 9) as u8;
+        let b1 = (year >> 1) as u8;
+        let b2 = (year << 7) as u8 | (month << 3) | (day >> 2);
+        let b3 = (day << 6) | (hour << 1) | (minute >> 5);
+        let b4 = (minute << 3) | (second >> 3);
+        let b5 = (second << 5) | first_var_length_byte_fragment;
 
         let mut buf = [b0, b1, b2, b3, b4, b5, 0, 0, 0, 0];
 
         // write variable length fractional second
-        let slice_end_index = match fractional_second {
+        let slice_end_index = match frac_second {
             FractionalSecond::None => {
                 // tail end of offset
-                buf[6] = offset_num << 6;
+                buf[6] = offset << 6;
                 7
             },
             FractionalSecond::Milliseconds(ms) => {
-                buf[6] = ((ms << 3) as u8) | (offset_num >> 4);
-                buf[7] = offset_num << 4;
+                buf[6] = ((ms << 3) as u8) | (offset >> 4);
+                buf[7] = offset << 4;
                 8
             },
             FractionalSecond::Microseconds(us) => {
                 buf[6] = (us >> 7) as u8;
-                buf[7] = ((us << 1) as u8) | offset_num >> 6;
-                buf[8] = offset_num << 2;
+                buf[7] = ((us << 1) as u8) | offset >> 6;
+                buf[8] = offset << 2;
                 9
             },
             FractionalSecond::Nanoseconds(ns) => {
                 buf[6] = (ns >> 17) as u8;
                 buf[7] = (ns >> 9) as u8;
                 buf[8] = (ns >> 1) as u8;
-                buf[9] = (ns << 7) as u8 | offset_num;
+                buf[9] = (ns << 7) as u8 | offset;
                 10
             }
         };
 
         write_array_map_err(&buf[0..slice_end_index], writer)
-            .map_err(|_| ComponentSerializationError::IoError)
-    }
-
-    pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        Self::serialize_components(self.year(), self.month(), self.day(), self.hour(),
-                                   self.minute(), self.second(), self.frac_second, self.offset(),
-                                   writer)
-            .map_err(|_| SerializationError::IoError)
     }
 }
 
