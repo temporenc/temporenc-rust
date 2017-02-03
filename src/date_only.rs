@@ -10,16 +10,15 @@ pub struct DateOnly {
 }
 
 impl DateOnly {
+    #[inline]
     pub fn new(year: Option<u16>, month: Option<u8>, day: Option<u8>)
                -> Result<DateOnly, CreationError> {
-        check_year_option(year, CreationError::InvalidFieldValue)?;
-        check_month_option(month, CreationError::InvalidFieldValue)?;
-        check_day_option(day, CreationError::InvalidFieldValue)?;
+        let err_val = CreationError::InvalidFieldValue;
 
         Ok(DateOnly {
-            year: year_num(year),
-            month: month_num(month),
-            day: day_num(day),
+            year: year_num(year, err_val)?,
+            month: month_num(month, err_val)?,
+            day: day_num(day, err_val)?,
         })
     }
 
@@ -59,11 +58,10 @@ impl DateOnly {
 
     pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
                                           writer: &mut W) -> Result<usize, ComponentSerializationError> {
-        check_year_option(year, ComponentSerializationError::InvalidFieldValue)?;
-        check_month_option(month, ComponentSerializationError::InvalidFieldValue)?;
-        check_day_option(day, ComponentSerializationError::InvalidFieldValue)?;
+        let err_val = ComponentSerializationError::InvalidFieldValue;
 
-        Self::serialize_raw(year_num(year), month_num(month), day_num(day), writer)
+        Self::serialize_raw(year_num(year, err_val)?, month_num(month, err_val)?,
+                            day_num(day, err_val)?, writer)
             .map_err(|_| ComponentSerializationError::IoError)
     }
 

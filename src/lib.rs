@@ -174,22 +174,22 @@ fn write_array_map_err<W: Write>(bytes: &[u8], writer: &mut W) -> Result<usize, 
     writer.write_all(bytes).map(|_| bytes.len())
 }
 
-fn check_option_in_range<T: PartialOrd, E: Copy>(val: Option<T>, min: T, max: T, err_val: E)
-                                        -> Result<(), E> {
+fn check_option_in_range<T: PartialOrd, E: Copy>(val: Option<T>, min: T, max: T, none: T,
+                                                 err_val: E) -> Result<T, E> {
     if let Some(v) = val {
         return check_in_range(v, min, max, err_val);
     }
 
-    Ok(())
+    Ok(none)
 }
 
 fn check_in_range<T: PartialOrd, E: Copy>(v: T, min: T, max: T, err_val: E)
-                                 -> Result<(), E> {
+                                 -> Result<T, E> {
     if v < min || v > max {
         return Err(err_val)
     }
 
-    Ok(())
+    Ok(v)
 }
 
 fn check_deser_in_range_or_none<T: PartialOrd>(v: T, min: T, max: T, none: T) -> Result<(), DeserializationError> {
@@ -200,33 +200,48 @@ fn check_deser_in_range_or_none<T: PartialOrd>(v: T, min: T, max: T, none: T) ->
     }
 }
 
-fn check_year_option<E: Copy>(year: Option<u16>, err_val: E) -> Result<(), E> {
-    check_option_in_range(year, YEAR_MIN, YEAR_MAX, err_val)
-}
-
-fn check_month_option<E: Copy>(month: Option<u8>, err_val: E) -> Result<(), E> {
-    check_option_in_range(month, MONTH_MIN, MONTH_MAX, err_val)
-}
-
-fn check_day_option<E: Copy>(day: Option<u8>, err_val: E) -> Result<(), E> {
-    check_option_in_range(day, DAY_MIN, DAY_MAX, err_val)
-}
-
-fn check_hour_option<E: Copy>(hour: Option<u8>, err_val: E) -> Result<(), E> {
-    check_option_in_range(hour, HOUR_MIN, HOUR_MAX, err_val)
-}
-
-fn check_minute_option<E: Copy>(minute: Option<u8>, err_val: E) -> Result<(), E> {
-    check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX, err_val)
-}
-
-fn check_second_option<E: Copy>(second: Option<u8>, err_val: E) -> Result<(), E> {
-    check_option_in_range(second, SECOND_MIN, SECOND_MAX, err_val)
-}
-
-// As of 1.14, 3x speed boost on serialization benchmarks with this inline
 #[inline]
-fn offset_validate_num<E: Copy>(offset: OffsetValue, err_val: E) -> Result<u8, E> {
+fn year_num<E: Copy>(year: Option<u16>, err_val: E) -> Result<u16, E> {
+    check_option_in_range(year, YEAR_MIN, YEAR_MAX, YEAR_RAW_NONE, err_val)
+}
+
+#[inline]
+fn month_num<E: Copy>(month: Option<u8>, err_val: E) -> Result<u8, E> {
+    if let Some(m) = month {
+        // will never underflow because min = 1
+        return check_in_range(m, MONTH_MIN, MONTH_MAX, err_val).map(|m| m - 1);
+    }
+
+    Ok(MONTH_RAW_NONE)
+}
+
+#[inline]
+fn day_num<E: Copy>(day: Option<u8>, err_val: E) -> Result<u8, E> {
+    if let Some(d) = day {
+        // will never underflow because min = 1
+        return check_in_range(d, DAY_MIN, DAY_MAX, err_val).map(|d| d - 1);
+    }
+
+    Ok(DAY_RAW_NONE)
+}
+
+#[inline]
+fn hour_num<E: Copy>(hour: Option<u8>, err_val: E) -> Result<u8, E> {
+    check_option_in_range(hour, HOUR_MIN, HOUR_MAX, HOUR_RAW_NONE, err_val)
+}
+
+#[inline]
+fn minute_num<E: Copy>(minute: Option<u8>, err_val: E) -> Result<u8, E> {
+    check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX, MINUTE_RAW_NONE, err_val)
+}
+
+#[inline]
+fn second_num<E: Copy>(second: Option<u8>, err_val: E) -> Result<u8, E> {
+    check_option_in_range(second, SECOND_MIN, SECOND_MAX, SECOND_RAW_NONE, err_val)
+}
+
+#[inline]
+fn offset_num<E: Copy>(offset: OffsetValue, err_val: E) -> Result<u8, E> {
     match offset {
         OffsetValue::None => Ok(OFFSET_RAW_NONE),
         OffsetValue::SpecifiedElsewhere => Ok(OFFSET_RAW_ELSEWHERE),
@@ -240,36 +255,4 @@ fn offset_validate_num<E: Copy>(offset: OffsetValue, err_val: E) -> Result<u8, E
             Ok(((o / 15) + 64) as u8)
         }
     }
-}
-
-// convert Option back to numeric form
-
-#[inline]
-fn year_num(year: Option<u16>) -> u16 {
-    year.unwrap_or(YEAR_RAW_NONE)
-}
-
-#[inline]
-fn month_num(month: Option<u8>) -> u8 {
-    month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE)
-}
-
-#[inline]
-fn day_num(day: Option<u8>) -> u8 {
-    day.map(|m| m - 1).unwrap_or(DAY_RAW_NONE)
-}
-
-#[inline]
-fn hour_num(hour: Option<u8>) -> u8 {
-    hour.unwrap_or(HOUR_RAW_NONE)
-}
-
-#[inline]
-fn minute_num(minute: Option<u8>) -> u8 {
-    minute.unwrap_or(MINUTE_RAW_NONE)
-}
-
-#[inline]
-fn second_num(second: Option<u8>) -> u8 {
-    second.unwrap_or(SECOND_RAW_NONE)
 }

@@ -132,41 +132,31 @@ impl DateTimeSubSecondOffset {
                                           fractional_second: FractionalSecond, offset: OffsetValue,
                                           writer: &mut W)
                                           -> Result<usize, ComponentSerializationError> {
-        check_year_option(year, ComponentSerializationError::InvalidFieldValue)?;
-        check_month_option(month, ComponentSerializationError::InvalidFieldValue)?;
-        check_day_option(day, ComponentSerializationError::InvalidFieldValue)?;
-        check_hour_option(hour, ComponentSerializationError::InvalidFieldValue)?;
-        check_minute_option(minute, ComponentSerializationError::InvalidFieldValue)?;
-        check_second_option(second, ComponentSerializationError::InvalidFieldValue)?;
+        let err_val = ComponentSerializationError::InvalidFieldValue;
 
-        let offset_num = offset_validate_num(
-            offset, ComponentSerializationError::InvalidFieldValue)?;
+        let year_num = year_num(year, err_val)?;
+        let month_num = month_num(month, err_val)?;
+        let day_num = day_num(day, err_val)?;
+        let hour_num = hour_num(hour, err_val)?;
+        let minute_num = minute_num(minute, err_val)?;
+        let second_num = second_num(second, err_val)?;
+        let offset_num = offset_num(offset, err_val)?;
 
         let (precision_tag, first_var_length_byte_fragment) = match fractional_second {
             FractionalSecond::Milliseconds(ms) => {
-                check_in_range(ms, MILLIS_MIN, MILLIS_MAX,
-                               ComponentSerializationError::InvalidFieldValue)?;
+                check_in_range(ms, MILLIS_MIN, MILLIS_MAX, err_val)?;
                 (PRECISION_DTSO_MILLIS_TAG, (ms >> 5) as u8)
             },
             FractionalSecond::Microseconds(us) => {
-                check_in_range(us, MICROS_MIN, MICROS_MAX,
-                               ComponentSerializationError::InvalidFieldValue)?;
+                check_in_range(us, MICROS_MIN, MICROS_MAX, err_val)?;
                 (PRECISION_DTSO_MICROS_TAG, (us >> 15) as u8)
             },
             FractionalSecond::Nanoseconds(ns) => {
-                check_in_range(ns, NANOS_MIN, NANOS_MAX,
-                               ComponentSerializationError::InvalidFieldValue)?;
+                check_in_range(ns, NANOS_MIN, NANOS_MAX, err_val)?;
                 (PRECISION_DTSO_NANOS_TAG, (ns >> 25) as u8)
             },
             FractionalSecond::None => (PRECISION_DTSO_NONE_TAG, offset_num >> 2),
         };
-
-        let year_num = year.unwrap_or(YEAR_RAW_NONE);
-        let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
-        let day_num = day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE);
-        let hour_num = hour.unwrap_or(HOUR_RAW_NONE);
-        let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
-        let second_num = second.unwrap_or(SECOND_RAW_NONE);
 
         let b0 = DATE_TIME_SUBSECOND_OFFSET_TAG | precision_tag | (year_num >> 9) as u8;
         let b1 = (year_num >> 1) as u8;

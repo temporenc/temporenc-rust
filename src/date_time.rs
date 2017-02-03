@@ -13,22 +13,18 @@ pub struct DateTime {
 }
 
 impl DateTime {
+    #[inline]
     pub fn new(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
                minute: Option<u8>, second: Option<u8>) -> Result<DateTime, CreationError> {
-        check_year_option(year, CreationError::InvalidFieldValue)?;
-        check_month_option(month, CreationError::InvalidFieldValue)?;
-        check_day_option(day, CreationError::InvalidFieldValue)?;
-        check_hour_option(hour, CreationError::InvalidFieldValue)?;
-        check_minute_option(minute, CreationError::InvalidFieldValue)?;
-        check_second_option(second, CreationError::InvalidFieldValue)?;
-
+        let err_val = CreationError::InvalidFieldValue;
+        
         Ok(DateTime {
-            year: year_num(year),
-            month: month_num(month),
-            day: day_num(day),
-            hour: hour_num(hour),
-            minute: minute_num(minute),
-            second: second_num(second),
+            year: year_num(year, err_val)?,
+            month: month_num(month, err_val)?,
+            day: day_num(day, err_val)?,
+            hour: hour_num(hour, err_val)?,
+            minute: minute_num(minute, err_val)?,
+            second: second_num(second, err_val)?,
         })
     }
 
@@ -82,15 +78,11 @@ impl DateTime {
     pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
                                           hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
                                           writer: &mut W) -> Result<usize, ComponentSerializationError> {
-        check_year_option(year, ComponentSerializationError::InvalidFieldValue)?;
-        check_month_option(month, ComponentSerializationError::InvalidFieldValue)?;
-        check_day_option(day, ComponentSerializationError::InvalidFieldValue)?;
-        check_hour_option(hour, ComponentSerializationError::InvalidFieldValue)?;
-        check_minute_option(minute, ComponentSerializationError::InvalidFieldValue)?;
-        check_second_option(second, ComponentSerializationError::InvalidFieldValue)?;
-
-        Self::serialize_raw(year_num(year), month_num(month), day_num(day), hour_num(hour),
-                            minute_num(minute), second_num(second), writer)
+        let err_val = ComponentSerializationError::InvalidFieldValue;
+        
+        Self::serialize_raw(year_num(year, err_val)?, month_num(month, err_val)?,
+                            day_num(day, err_val)?, hour_num(hour, err_val)?,
+                            minute_num(minute, err_val)?, second_num(second, err_val)?, writer)
             .map_err(|_| ComponentSerializationError::IoError)
     }
 

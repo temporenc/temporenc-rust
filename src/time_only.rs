@@ -10,15 +10,14 @@ pub struct TimeOnly {
 }
 
 impl TimeOnly {
+    #[inline]
     pub fn new(hour: Option<u8>, minute: Option<u8>, second: Option<u8>) -> Result<TimeOnly, CreationError> {
-        check_hour_option(hour, CreationError::InvalidFieldValue)?;
-        check_minute_option(minute, CreationError::InvalidFieldValue)?;
-        check_second_option(second, CreationError::InvalidFieldValue)?;
+        let err_val = CreationError::InvalidFieldValue;
 
         Ok(TimeOnly {
-            hour: hour_num(hour),
-            minute: minute_num(minute),
-            second: second_num(second),
+            hour: hour_num(hour, err_val)?,
+            minute: minute_num(minute, err_val)?,
+            second: second_num(second, err_val)?,
         })
     }
 
@@ -57,11 +56,10 @@ impl TimeOnly {
 
     pub fn serialize_components<W: Write>(hour: Option<u8>, minute: Option<u8>, second: Option<u8>, writer: &mut W)
                                           -> Result<usize, ComponentSerializationError> {
-        check_hour_option(hour, ComponentSerializationError::InvalidFieldValue)?;
-        check_minute_option(minute, ComponentSerializationError::InvalidFieldValue)?;
-        check_second_option(second, ComponentSerializationError::InvalidFieldValue)?;
+        let err_val = ComponentSerializationError::InvalidFieldValue;
 
-        Self::serialize_raw(hour_num(hour), minute_num(minute), second_num(second), writer)
+        Self::serialize_raw( hour_num(hour, err_val)?, minute_num(minute, err_val)?,
+                             second_num(second, err_val)?, writer)
             .map_err(|_| ComponentSerializationError::IoError)
     }
 
