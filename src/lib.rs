@@ -65,12 +65,12 @@ pub use date_time_offset::DateTimeOffset;
 pub use date_time_subsecond::DateTimeSubSecond;
 pub use date_time_subsecond_offset::DateTimeSubSecondOffset;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CreationError {
     InvalidFieldValue,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DeserializationError {
     InvalidFieldValue,
     IoError,
@@ -78,12 +78,12 @@ pub enum DeserializationError {
     IncorrectPrecisionTag,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SerializationError {
     IoError
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ComponentSerializationError {
     InvalidFieldValue,
     IoError
@@ -174,45 +174,19 @@ fn write_array_map_err<W: Write>(bytes: &[u8], writer: &mut W) -> Result<usize, 
     writer.write_all(bytes).map(|_| bytes.len())
 }
 
-fn check_option_in_range<T: PartialOrd>(val: Option<T>, min: T, max: T)
-                                        -> Result<(), ComponentSerializationError> {
+fn check_option_in_range<T: PartialOrd, E: Copy>(val: Option<T>, min: T, max: T, err_val: E)
+                                        -> Result<(), E> {
     if let Some(v) = val {
-        return check_in_range(v, min, max);
+        return check_in_range(v, min, max, err_val);
     }
 
     Ok(())
 }
 
-fn check_in_range<T: PartialOrd>(v: T, min: T, max: T)
-                                 -> Result<(), ComponentSerializationError> {
+fn check_in_range<T: PartialOrd, E: Copy>(v: T, min: T, max: T, err_val: E)
+                                 -> Result<(), E> {
     if v < min || v > max {
-        return Err(ComponentSerializationError::InvalidFieldValue)
-    }
-
-    Ok(())
-}
-
-fn check_new_option_in_range<T: PartialOrd>(val: Option<T>, min: T, max: T)
-                                            -> Result<(), CreationError> {
-    if let Some(v) = val {
-        return check_new_in_range(v, min, max);
-    }
-
-    Ok(())
-}
-fn check_new_in_range<T: PartialOrd>(v: T, min: T, max: T)
-                                     -> Result<(), CreationError> {
-    if v < min || v > max {
-        return Err(CreationError::InvalidFieldValue)
-    }
-
-    Ok(())
-}
-
-fn check_deser_in_range<T: PartialOrd + std::fmt::Debug>(v: T, min: T, max: T)
-                                      -> Result<(), DeserializationError> {
-    if v < min || v > max {
-        return Err(DeserializationError::InvalidFieldValue)
+        return Err(err_val)
     }
 
     Ok(())
@@ -226,17 +200,41 @@ fn check_deser_in_range_or_none<T: PartialOrd>(v: T, min: T, max: T, none: T) ->
     }
 }
 
+fn check_year_option<E: Copy>(year: Option<u16>, err_val: E) -> Result<(), E> {
+    check_option_in_range(year, YEAR_MIN, YEAR_MAX, err_val)
+}
+
+fn check_month_option<E: Copy>(month: Option<u8>, err_val: E) -> Result<(), E> {
+    check_option_in_range(month, MONTH_MIN, MONTH_MAX, err_val)
+}
+
+fn check_day_option<E: Copy>(day: Option<u8>, err_val: E) -> Result<(), E> {
+    check_option_in_range(day, DAY_MIN, DAY_MAX, err_val)
+}
+
+fn check_hour_option<E: Copy>(hour: Option<u8>, err_val: E) -> Result<(), E> {
+    check_option_in_range(hour, HOUR_MIN, HOUR_MAX, err_val)
+}
+
+fn check_minute_option<E: Copy>(minute: Option<u8>, err_val: E) -> Result<(), E> {
+    check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX, err_val)
+}
+
+fn check_second_option<E: Copy>(second: Option<u8>, err_val: E) -> Result<(), E> {
+    check_option_in_range(second, SECOND_MIN, SECOND_MAX, err_val)
+}
+
 // As of 1.14, 3x speed boost on serialization benchmarks with this inline
 #[inline]
-fn encode_offset_num(offset: OffsetValue) -> Result<u8, ComponentSerializationError> {
+fn offset_validate_num<E: Copy>(offset: OffsetValue, err_val: E) -> Result<u8, E> {
     match offset {
         OffsetValue::None => Ok(OFFSET_RAW_NONE),
         OffsetValue::SpecifiedElsewhere => Ok(OFFSET_RAW_ELSEWHERE),
         OffsetValue::UtcOffset(o) => {
-            check_in_range(o, OFFSET_MIN, OFFSET_MAX)?;
+            check_in_range(o, OFFSET_MIN, OFFSET_MAX, err_val)?;
 
             if o % 15 != 0 {
-                return Err(ComponentSerializationError::InvalidFieldValue);
+                return Err(err_val);
             };
 
             Ok(((o / 15) + 64) as u8)

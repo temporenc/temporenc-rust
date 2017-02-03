@@ -1,7 +1,6 @@
 use std::io::{Read, Write, Error};
 
-use super::{Serializable, Date, Time, DeserializationError, SerializationError, ComponentSerializationError, CreationError, read_exact, check_option_in_range, check_new_option_in_range, write_array_map_err, check_deser_in_range_or_none, year_num, month_num, day_num, hour_num, minute_num, second_num, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, MONTH_RAW_MIN, MONTH_RAW_MAX};
-
+use super::*;
 
 #[derive(Debug)]
 pub struct DateTime {
@@ -16,13 +15,12 @@ pub struct DateTime {
 impl DateTime {
     pub fn new(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
                minute: Option<u8>, second: Option<u8>) -> Result<DateTime, CreationError> {
-        check_new_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
-        check_new_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
-        check_new_option_in_range(day, DAY_MIN, DAY_MAX)?;
-
-        check_new_option_in_range(hour, HOUR_MIN, HOUR_MAX)?;
-        check_new_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
-        check_new_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
+        check_year_option(year, CreationError::InvalidFieldValue)?;
+        check_month_option(month, CreationError::InvalidFieldValue)?;
+        check_day_option(day, CreationError::InvalidFieldValue)?;
+        check_hour_option(hour, CreationError::InvalidFieldValue)?;
+        check_minute_option(minute, CreationError::InvalidFieldValue)?;
+        check_second_option(second, CreationError::InvalidFieldValue)?;
 
         Ok(DateTime {
             year: year_num(year),
@@ -84,12 +82,12 @@ impl DateTime {
     pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
                                           hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
                                           writer: &mut W) -> Result<usize, ComponentSerializationError> {
-        check_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
-        check_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
-        check_option_in_range(day, DAY_MIN, DAY_MAX)?;
-        check_option_in_range(hour, HOUR_MIN, HOUR_MAX)?;
-        check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
-        check_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
+        check_year_option(year, ComponentSerializationError::InvalidFieldValue)?;
+        check_month_option(month, ComponentSerializationError::InvalidFieldValue)?;
+        check_day_option(day, ComponentSerializationError::InvalidFieldValue)?;
+        check_hour_option(hour, ComponentSerializationError::InvalidFieldValue)?;
+        check_minute_option(minute, ComponentSerializationError::InvalidFieldValue)?;
+        check_second_option(second, ComponentSerializationError::InvalidFieldValue)?;
 
         Self::serialize_raw(year_num(year), month_num(month), day_num(day), hour_num(hour),
                             minute_num(minute), second_num(second), writer)

@@ -1,6 +1,6 @@
-use std::io::{Read, Write};
+use std::io::{Read, Write, Error};
 
-use super::{Serializable, Date, Time, Offset, DeserializationError, SerializationError, ComponentSerializationError, read_exact, check_option_in_range, write_array_map_err, encode_offset_num, check_deser_in_range_or_none, OffsetValue, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_OFFSET_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, MONTH_RAW_MIN, MONTH_RAW_MAX};
+use super::*;
 
 #[derive(Debug)]
 pub struct DateTimeOffset {
@@ -14,6 +14,26 @@ pub struct DateTimeOffset {
 }
 
 impl DateTimeOffset {
+    pub fn new(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
+               minute: Option<u8>, second: Option<u8>, offset: OffsetValue) -> Result<DateTimeOffset, CreationError> {
+        check_year_option(year, CreationError::InvalidFieldValue)?;
+        check_month_option(month, CreationError::InvalidFieldValue)?;
+        check_day_option(day, CreationError::InvalidFieldValue)?;
+        check_hour_option(hour, CreationError::InvalidFieldValue)?;
+        check_minute_option(minute, CreationError::InvalidFieldValue)?;
+        check_second_option(second, CreationError::InvalidFieldValue)?;
+
+        Ok(DateTimeOffset {
+            year: year_num(year),
+            month: month_num(month),
+            day: day_num(day),
+            hour: hour_num(hour),
+            minute: minute_num(minute),
+            second: second_num(second),
+            offset: offset_validate_num(offset, CreationError::InvalidFieldValue)?
+        })
+    }
+
     pub fn deserialize<R: Read>(reader: &mut R) -> Result<DateTimeOffset, DeserializationError> {
         let mut buf = [0; SERIALIZED_SIZE];
         read_exact(reader, &mut buf)?;
@@ -71,38 +91,38 @@ impl DateTimeOffset {
                                           hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
                                           offset: OffsetValue, writer: &mut W)
                                           -> Result<usize, ComponentSerializationError> {
-        check_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
-        check_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
-        check_option_in_range(day, DAY_MIN, DAY_MAX)?;
-        check_option_in_range(hour, HOUR_MIN, HOUR_MAX)?;
-        check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
-        check_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
+        check_year_option(year, ComponentSerializationError::InvalidFieldValue)?;
+        check_month_option(month, ComponentSerializationError::InvalidFieldValue)?;
+        check_day_option(day, ComponentSerializationError::InvalidFieldValue)?;
+        check_hour_option(hour, ComponentSerializationError::InvalidFieldValue)?;
+        check_minute_option(minute, ComponentSerializationError::InvalidFieldValue)?;
+        check_second_option(second, ComponentSerializationError::InvalidFieldValue)?;
 
-        let offset_num = encode_offset_num(offset)?;
+        let offset_num = offset_validate_num(
+            offset, ComponentSerializationError::InvalidFieldValue)?;
 
-        let year_num = year.unwrap_or(YEAR_RAW_NONE);
-        let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
-        let day_num = day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE);
-        let hour_num = hour.unwrap_or(HOUR_RAW_NONE);
-        let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
-        let second_num = second.unwrap_or(SECOND_RAW_NONE);
-
-        let b0 = DATE_TIME_OFFSET_TAG | (year_num >> 7) as u8;
-        let b1 = ((year_num << 1) as u8) | (month_num >> 3);
-        let b2 = (month_num << 5) | day_num;
-        let b3 = (hour_num << 3) | (minute_num >> 3);
-        let b4 = (minute_num << 5) | (second_num >> 1);
-        let b5 = (second_num << 7) | offset_num;
-
-        write_array_map_err(&[b0, b1, b2, b3, b4, b5], writer)
+        Self::serialize_raw(year_num(year), month_num(month), day_num(day), hour_num(hour),
+                            minute_num(minute), second_num(second), offset_num, writer)
             .map_err(|_| ComponentSerializationError::IoError)
     }
 
-
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        Self::serialize_components(self.year(), self.month(), self.day(), self.hour(),
-                                   self.minute(), self.second(), self.offset(), writer)
+        Self::serialize_raw(self.year, self.month, self.day, self.hour, self.minute,
+                            self.second, self.offset, writer)
             .map_err(|_| SerializationError::IoError)
+    }
+
+    fn serialize_raw<W: Write>(year: u16, month: u8, day: u8, hour: u8, minute: u8,
+                               second: u8, offset: u8, writer: &mut W)
+                               -> Result<usize, Error> {
+        let b0 = DATE_TIME_OFFSET_TAG | (year >> 7) as u8;
+        let b1 = ((year << 1) as u8) | (month >> 3);
+        let b2 = (month << 5) | day;
+        let b3 = (hour << 3) | (minute >> 3);
+        let b4 = (minute << 5) | (second >> 1);
+        let b5 = (second << 7) | offset;
+
+        write_array_map_err(&[b0, b1, b2, b3, b4, b5], writer)
     }
 }
 

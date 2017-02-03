@@ -1,7 +1,6 @@
 use std::io::{Read, Write, Error};
 
-use super::{Date, Serializable, DeserializationError, ComponentSerializationError, CreationError, SerializationError, read_exact, check_option_in_range, write_array_map_err, check_deser_in_range_or_none, check_new_option_in_range, year_num, month_num, day_num, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, MONTH_RAW_MIN, MONTH_RAW_MAX, DAY_MAX, DAY_MIN, DATE_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE};
-
+use super::*;
 
 #[derive(Debug)]
 pub struct DateOnly {
@@ -13,9 +12,9 @@ pub struct DateOnly {
 impl DateOnly {
     pub fn new(year: Option<u16>, month: Option<u8>, day: Option<u8>)
                -> Result<DateOnly, CreationError> {
-        check_new_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
-        check_new_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
-        check_new_option_in_range(day, DAY_MIN, DAY_MAX)?;
+        check_year_option(year, CreationError::InvalidFieldValue)?;
+        check_month_option(month, CreationError::InvalidFieldValue)?;
+        check_day_option(day, CreationError::InvalidFieldValue)?;
 
         Ok(DateOnly {
             year: year_num(year),
@@ -60,9 +59,9 @@ impl DateOnly {
 
     pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
                                           writer: &mut W) -> Result<usize, ComponentSerializationError> {
-        check_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
-        check_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
-        check_option_in_range(day, DAY_MIN, DAY_MAX)?;
+        check_year_option(year, ComponentSerializationError::InvalidFieldValue)?;
+        check_month_option(month, ComponentSerializationError::InvalidFieldValue)?;
+        check_day_option(day, ComponentSerializationError::InvalidFieldValue)?;
 
         Self::serialize_raw(year_num(year), month_num(month), day_num(day), writer)
             .map_err(|_| ComponentSerializationError::IoError)

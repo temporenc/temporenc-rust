@@ -1,7 +1,6 @@
 use std::io::{Read, Write, Error};
 
-use super::{Serializable, Time, DeserializationError, SerializationError, ComponentSerializationError, CreationError, read_exact, check_option_in_range, write_array_map_err, check_deser_in_range_or_none, check_new_option_in_range, hour_num, minute_num, second_num, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
-
+use super::*;
 
 #[derive(Debug)]
 pub struct TimeOnly {
@@ -12,9 +11,9 @@ pub struct TimeOnly {
 
 impl TimeOnly {
     pub fn new(hour: Option<u8>, minute: Option<u8>, second: Option<u8>) -> Result<TimeOnly, CreationError> {
-        check_new_option_in_range(hour, HOUR_MIN, HOUR_MAX)?;
-        check_new_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
-        check_new_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
+        check_hour_option(hour, CreationError::InvalidFieldValue)?;
+        check_minute_option(minute, CreationError::InvalidFieldValue)?;
+        check_second_option(second, CreationError::InvalidFieldValue)?;
 
         Ok(TimeOnly {
             hour: hour_num(hour),
@@ -58,9 +57,9 @@ impl TimeOnly {
 
     pub fn serialize_components<W: Write>(hour: Option<u8>, minute: Option<u8>, second: Option<u8>, writer: &mut W)
                                           -> Result<usize, ComponentSerializationError> {
-        check_option_in_range(hour, HOUR_MIN, HOUR_MAX)?;
-        check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
-        check_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
+        check_hour_option(hour, ComponentSerializationError::InvalidFieldValue)?;
+        check_minute_option(minute, ComponentSerializationError::InvalidFieldValue)?;
+        check_second_option(second, ComponentSerializationError::InvalidFieldValue)?;
 
         Self::serialize_raw(hour_num(hour), minute_num(minute), second_num(second), writer)
             .map_err(|_| ComponentSerializationError::IoError)

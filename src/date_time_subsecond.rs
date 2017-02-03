@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use super::{Serializable, Date, Time, SubSecond, DeserializationError, SerializationError, ComponentSerializationError, read_exact, check_option_in_range, check_in_range, write_array_map_err, check_deser_in_range_or_none, check_deser_in_range, FractionalSecond, PrecisionTag, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, MILLIS_MAX, MILLIS_MIN, MICROS_MAX, MICROS_MIN, NANOS_MAX, NANOS_MIN, DATE_TIME_SUBSECOND_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, PRECISION_DTS_MASK, PRECISION_DTS_MILLIS_TAG, PRECISION_DTS_MICROS_TAG, PRECISION_DTS_NANOS_TAG, PRECISION_DTS_NONE_TAG, MONTH_RAW_MIN, MONTH_RAW_MAX};
+use super::*;
 
 pub struct DateTimeSubSecond {
     year: u16,
@@ -63,7 +63,8 @@ impl DateTimeSubSecond {
                 let mut ms = ((byte5 & 0x3F) as u16) << 4;
                 ms |= (buf[6] >> 4) as u16;
 
-                check_deser_in_range(ms, MILLIS_MIN, MILLIS_MAX)?;
+                check_in_range(ms, MILLIS_MIN, MILLIS_MAX,
+                               DeserializationError::InvalidFieldValue)?;
                 FractionalSecond::Milliseconds(ms)
             }
             PrecisionTag::Micro => {
@@ -72,7 +73,8 @@ impl DateTimeSubSecond {
                 us |= (buf[6] as u32) << 6;
                 us |= (buf[7] >> 2) as u32;
 
-                check_deser_in_range(us, MICROS_MIN, MICROS_MAX)?;
+                check_in_range(us, MICROS_MIN, MICROS_MAX,
+                               DeserializationError::InvalidFieldValue)?;
                 FractionalSecond::Microseconds(us)
             }
             PrecisionTag::Nano => {
@@ -82,7 +84,8 @@ impl DateTimeSubSecond {
                 ns |= (buf[7] as u32) << 8;
                 ns |= buf[8] as u32;
 
-                check_deser_in_range(ns, NANOS_MIN, NANOS_MAX)?;
+                check_in_range(ns, NANOS_MIN, NANOS_MAX,
+                               DeserializationError::InvalidFieldValue)?;
                 FractionalSecond::Nanoseconds(ns)
             }
         };
@@ -109,25 +112,28 @@ impl DateTimeSubSecond {
                                           hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
                                           fractional_second: FractionalSecond, writer: &mut W)
                                           -> Result<usize, ComponentSerializationError> {
-        check_option_in_range(year, YEAR_MIN, YEAR_MAX)?;
-        check_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
-        check_option_in_range(day, DAY_MIN, DAY_MAX)?;
-        check_option_in_range(hour, HOUR_MIN, HOUR_MAX)?;
-        check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
-        check_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
+        check_year_option(year, ComponentSerializationError::InvalidFieldValue)?;
+        check_month_option(month, ComponentSerializationError::InvalidFieldValue)?;
+        check_day_option(day, ComponentSerializationError::InvalidFieldValue)?;
+        check_hour_option(hour, ComponentSerializationError::InvalidFieldValue)?;
+        check_minute_option(minute, ComponentSerializationError::InvalidFieldValue)?;
+        check_second_option(second, ComponentSerializationError::InvalidFieldValue)?;
 
         let (precision_tag, first_subsecond_byte_fragment) = match fractional_second {
             FractionalSecond::None => (PRECISION_DTS_NONE_TAG, 0x0),
             FractionalSecond::Milliseconds(ms) => {
-                check_in_range(ms, MILLIS_MIN, MILLIS_MAX)?;
+                check_in_range(ms, MILLIS_MIN, MILLIS_MAX,
+                               ComponentSerializationError::InvalidFieldValue)?;
                 (PRECISION_DTS_MILLIS_TAG, (ms >> 4) as u8)
             },
             FractionalSecond::Microseconds(us) => {
-                check_in_range(us, MICROS_MIN, MICROS_MAX)?;
+                check_in_range(us, MICROS_MIN, MICROS_MAX,
+                               ComponentSerializationError::InvalidFieldValue)?;
                 (PRECISION_DTS_MICROS_TAG, (us >> 14) as u8)
             },
             FractionalSecond::Nanoseconds(ns) => {
-                check_in_range(ns, NANOS_MIN, NANOS_MAX)?;
+                check_in_range(ns, NANOS_MIN, NANOS_MAX,
+                               ComponentSerializationError::InvalidFieldValue)?;
                 (PRECISION_DTS_NANOS_TAG, (ns >> 24) as u8)
             }
         };
