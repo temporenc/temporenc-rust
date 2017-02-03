@@ -256,3 +256,20 @@ fn offset_num<E: Copy>(offset: OffsetValue, err_val: E) -> Result<u8, E> {
         }
     }
 }
+
+fn check_frac_second<E: Copy>(frac_second: FractionalSecond, err_val: E) -> Result<(), E> {
+    match frac_second {
+        FractionalSecond::None => {},
+        FractionalSecond::Milliseconds(ms) => {
+            check_in_range(ms, MILLIS_MIN, MILLIS_MAX, err_val)?;
+        },
+        FractionalSecond::Microseconds(us) => {
+            check_in_range(us, MICROS_MIN, MICROS_MAX, err_val)?;
+        },
+        FractionalSecond::Nanoseconds(ns) => {
+            check_in_range(ns, NANOS_MIN, NANOS_MAX, err_val)?;
+        }
+    }
+
+    Ok(())
+}

@@ -15,6 +15,26 @@ pub struct DateTimeSubSecondOffset {
 }
 
 impl DateTimeSubSecondOffset {
+    #[inline]
+    pub fn new(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
+               minute: Option<u8>, second: Option<u8>, frac_second: FractionalSecond,
+               offset: OffsetValue) -> Result<DateTimeSubSecondOffset, CreationError> {
+        let err_val = CreationError::InvalidFieldValue;
+
+        check_frac_second(frac_second, err_val)?;
+
+        Ok(DateTimeSubSecondOffset {
+            year: year_num(year, err_val)?,
+            month: month_num(month, err_val)?,
+            day: day_num(day, err_val)?,
+            hour: hour_num(hour, err_val)?,
+            minute: minute_num(minute, err_val)?,
+            second: second_num(second, err_val)?,
+            frac_second: frac_second,
+            offset: offset_num(offset, err_val)?
+        })
+    }
+
     pub fn deserialize<R: Read>(reader: &mut R) -> Result<DateTimeSubSecondOffset, DeserializationError> {
         let mut buf = [0; MAX_SERIALIZED_SIZE];
         read_exact(reader, &mut buf[0..MIN_SERIALIZED_SIZE])?;

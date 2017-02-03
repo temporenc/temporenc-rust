@@ -103,3 +103,25 @@ fn serialize_random_new_struct_date_time_subsecond(b: &mut Bencher) {
         v.clear();
     })
 }
+
+#[bench]
+fn serialize_random_new_struct_date_time_subsecond_offset(b: &mut Bencher) {
+    let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecondOffset::max_serialized_size());
+    let mut r = RandomFieldSource::new(rand::weak_rng());
+    b.iter(|| {
+        let year = r.year();
+        let month = r.month();
+        let day = r.day();
+        let hour = r.hour();
+        let minute = r.minute();
+        let second = r.second();
+        let offset = r.offset();
+        let frac_second = r.fractional_second();
+        for _ in 0..NUM_ITEMS {
+            DateTimeSubSecondOffset::new(year, month, day, hour, minute, second,
+                                         frac_second, offset).unwrap()
+                .serialize(&mut v).unwrap();
+        };
+        v.clear();
+    })
+}

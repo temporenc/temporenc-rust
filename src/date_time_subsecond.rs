@@ -18,18 +18,7 @@ impl DateTimeSubSecond {
                minute: Option<u8>, second: Option<u8>, frac_second: FractionalSecond) -> Result<DateTimeSubSecond, CreationError> {
         let err_val = CreationError::InvalidFieldValue;
 
-        match frac_second {
-            FractionalSecond::None => {},
-            FractionalSecond::Milliseconds(ms) => {
-                check_in_range(ms, MILLIS_MIN, MILLIS_MAX, err_val)?;
-            },
-            FractionalSecond::Microseconds(us) => {
-                check_in_range(us, MICROS_MIN, MICROS_MAX, err_val)?;
-            },
-            FractionalSecond::Nanoseconds(ns) => {
-                check_in_range(ns, NANOS_MIN, NANOS_MAX, err_val)?;
-            }
-        };
+        check_frac_second(frac_second, err_val)?;
 
         Ok(DateTimeSubSecond {
             year: year_num(year, err_val)?,
