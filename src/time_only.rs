@@ -1,6 +1,6 @@
 use std::io::{Read, Write, Error};
 
-use super::{Serializable, Time, DeserializationError, SerializationError, ComponentSerializationError, CreationError, read_exact, check_option_in_range, write_array_map_err, check_deser_in_range_or_none, check_new_option_in_range, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
+use super::{Serializable, Time, DeserializationError, SerializationError, ComponentSerializationError, CreationError, read_exact, check_option_in_range, write_array_map_err, check_deser_in_range_or_none, check_new_option_in_range, hour_num, minute_num, second_num, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, TIME_TAG, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -17,9 +17,9 @@ impl TimeOnly {
         check_new_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
 
         Ok(TimeOnly {
-            hour: hour.unwrap_or(HOUR_RAW_NONE),
-            minute: minute.unwrap_or(MINUTE_RAW_NONE),
-            second: second.unwrap_or(SECOND_RAW_NONE)
+            hour: hour_num(hour),
+            minute: minute_num(minute),
+            second: second_num(second),
         })
     }
 
@@ -62,11 +62,7 @@ impl TimeOnly {
         check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
         check_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
 
-        let hour_num = hour.unwrap_or(HOUR_RAW_NONE);
-        let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
-        let second_num = second.unwrap_or(SECOND_RAW_NONE);
-
-        Self::serialize_raw(hour_num, minute_num, second_num, writer)
+        Self::serialize_raw(hour_num(hour), minute_num(minute), second_num(second), writer)
             .map_err(|_| ComponentSerializationError::IoError)
     }
 

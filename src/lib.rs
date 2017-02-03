@@ -243,3 +243,35 @@ fn encode_offset_num(offset: OffsetValue) -> Result<u8, ComponentSerializationEr
         }
     }
 }
+
+// convert Option back to numeric form
+
+#[inline]
+fn year_num(year: Option<u16>) -> u16 {
+    year.unwrap_or(YEAR_RAW_NONE)
+}
+
+#[inline]
+fn month_num(month: Option<u8>) -> u8 {
+    month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE)
+}
+
+#[inline]
+fn day_num(day: Option<u8>) -> u8 {
+    day.map(|m| m - 1).unwrap_or(DAY_RAW_NONE)
+}
+
+#[inline]
+fn hour_num(hour: Option<u8>) -> u8 {
+    hour.unwrap_or(HOUR_RAW_NONE)
+}
+
+#[inline]
+fn minute_num(minute: Option<u8>) -> u8 {
+    minute.unwrap_or(MINUTE_RAW_NONE)
+}
+
+#[inline]
+fn second_num(second: Option<u8>) -> u8 {
+    second.unwrap_or(SECOND_RAW_NONE)
+}

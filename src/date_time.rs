@@ -1,6 +1,6 @@
 use std::io::{Read, Write, Error};
 
-use super::{Serializable, Date, Time, DeserializationError, SerializationError, ComponentSerializationError, CreationError, read_exact, check_option_in_range, check_new_option_in_range, write_array_map_err, check_deser_in_range_or_none, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, MONTH_RAW_MIN, MONTH_RAW_MAX};
+use super::{Serializable, Date, Time, DeserializationError, SerializationError, ComponentSerializationError, CreationError, read_exact, check_option_in_range, check_new_option_in_range, write_array_map_err, check_deser_in_range_or_none, year_num, month_num, day_num, hour_num, minute_num, second_num, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, DAY_MAX, DAY_MIN, HOUR_MAX, HOUR_MIN, MINUTE_MAX, MINUTE_MIN, SECOND_MAX, SECOND_MIN, DATE_TIME_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE, HOUR_RAW_NONE, MINUTE_RAW_NONE, SECOND_RAW_NONE, MONTH_RAW_MIN, MONTH_RAW_MAX};
 
 
 #[derive(Debug)]
@@ -25,13 +25,12 @@ impl DateTime {
         check_new_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
 
         Ok(DateTime {
-            // TODO centralize logic for mapping Options to numbers
-            year: year.unwrap_or(YEAR_RAW_NONE),
-            month: month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE),
-            day: day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE),
-            hour: hour.unwrap_or(HOUR_RAW_NONE),
-            minute: minute.unwrap_or(MINUTE_RAW_NONE),
-            second: second.unwrap_or(SECOND_RAW_NONE)
+            year: year_num(year),
+            month: month_num(month),
+            day: day_num(day),
+            hour: hour_num(hour),
+            minute: minute_num(minute),
+            second: second_num(second),
         })
     }
 
@@ -92,14 +91,8 @@ impl DateTime {
         check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX)?;
         check_option_in_range(second, SECOND_MIN, SECOND_MAX)?;
 
-        let year_num = year.unwrap_or(YEAR_RAW_NONE);
-        let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
-        let day_num = day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE);
-        let hour_num = hour.unwrap_or(HOUR_RAW_NONE);
-        let minute_num = minute.unwrap_or(MINUTE_RAW_NONE);
-        let second_num = second.unwrap_or(SECOND_RAW_NONE);
-
-        Self::serialize_raw(year_num, month_num, day_num, hour_num, minute_num, second_num, writer)
+        Self::serialize_raw(year_num(year), month_num(month), day_num(day), hour_num(hour),
+                            minute_num(minute), second_num(second), writer)
             .map_err(|_| ComponentSerializationError::IoError)
     }
 
@@ -109,8 +102,8 @@ impl DateTime {
             .map_err(|_| SerializationError::IoError)
     }
 
-    fn serialize_raw<W: Write>(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8,
-                               writer: &mut W) -> Result<usize, Error> {
+    fn serialize_raw<W: Write>(year: u16, month: u8, day: u8, hour: u8, minute: u8,
+                               second: u8, writer: &mut W) -> Result<usize, Error> {
         let b0 = DATE_TIME_TAG | (year >> 6) as u8;
         let b1 = ((year << 2) as u8) | (month >> 2);
         let b2 = (month << 6) | (day << 1) | (hour >> 4);

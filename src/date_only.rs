@@ -1,6 +1,6 @@
 use std::io::{Read, Write, Error};
 
-use super::{Date, Serializable, DeserializationError, ComponentSerializationError, CreationError, SerializationError, read_exact, check_option_in_range, write_array_map_err, check_deser_in_range_or_none, check_new_option_in_range, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, MONTH_RAW_MIN, MONTH_RAW_MAX, DAY_MAX, DAY_MIN, DATE_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE};
+use super::{Date, Serializable, DeserializationError, ComponentSerializationError, CreationError, SerializationError, read_exact, check_option_in_range, write_array_map_err, check_deser_in_range_or_none, check_new_option_in_range, year_num, month_num, day_num, YEAR_MAX, YEAR_MIN, MONTH_MAX, MONTH_MIN, MONTH_RAW_MIN, MONTH_RAW_MAX, DAY_MAX, DAY_MIN, DATE_TAG, YEAR_RAW_NONE, MONTH_RAW_NONE, DAY_RAW_NONE};
 
 
 #[derive(Debug)]
@@ -18,9 +18,9 @@ impl DateOnly {
         check_new_option_in_range(day, DAY_MIN, DAY_MAX)?;
 
         Ok(DateOnly {
-            year: year.unwrap_or(YEAR_RAW_NONE),
-            month: month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE),
-            day: day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE)
+            year: year_num(year),
+            month: month_num(month),
+            day: day_num(day),
         })
     }
 
@@ -64,11 +64,7 @@ impl DateOnly {
         check_option_in_range(month, MONTH_MIN, MONTH_MAX)?;
         check_option_in_range(day, DAY_MIN, DAY_MAX)?;
 
-        let year_num = year.unwrap_or(YEAR_RAW_NONE);
-        let month_num = month.map(|m| m - 1).unwrap_or(MONTH_RAW_NONE);
-        let day_num = day.map(|d| d - 1).unwrap_or(DAY_RAW_NONE);
-
-        Self::serialize_raw(year_num, month_num, day_num, writer)
+        Self::serialize_raw(year_num(year), month_num(month), day_num(day), writer)
             .map_err(|_| ComponentSerializationError::IoError)
     }
 
