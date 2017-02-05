@@ -1,6 +1,7 @@
 use std::io::{Read, Write};
 
 use super::*;
+use super::frac_second;
 
 #[derive(Debug)]
 pub struct DateTimeSubSecond {
@@ -10,7 +11,7 @@ pub struct DateTimeSubSecond {
     hour: u8,
     minute: u8,
     second: u8,
-    frac_second: FractionalSecond
+    frac_second_fw: u32
 }
 
 impl DateTimeSubSecond {
@@ -28,7 +29,7 @@ impl DateTimeSubSecond {
             hour: hour_num(hour, err_val)?,
             minute: minute_num(minute, err_val)?,
             second: second_num(second, err_val)?,
-            frac_second: frac_second
+            frac_second_fw: frac_second::encode_fixed_width(&frac_second)
         })
     }
 
@@ -75,8 +76,8 @@ impl DateTimeSubSecond {
         let byte5 = buf[5];
         let raw_second = ((byte4 & 0x0F) << 2) | ((byte5 & 0xC0) >> 6);
 
-        let frac_second = match precision {
-            PrecisionTag::None => FractionalSecond::None,
+        let frac_second_fw = match precision {
+            PrecisionTag::None => frac_second::encode_none(),
             PrecisionTag::Milli => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..(MIN_SERIALIZED_SIZE + 1)])?;
                 let mut ms = ((byte5 & 0x3F) as u16) << 4;
@@ -84,7 +85,7 @@ impl DateTimeSubSecond {
 
                 check_in_range(ms, MILLIS_MIN, MILLIS_MAX,
                                DeserializationError::InvalidFieldValue)?;
-                FractionalSecond::Milliseconds(ms)
+                frac_second::encode_millis(ms)
             }
             PrecisionTag::Micro => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..(MIN_SERIALIZED_SIZE + 2)])?;
@@ -94,7 +95,7 @@ impl DateTimeSubSecond {
 
                 check_in_range(us, MICROS_MIN, MICROS_MAX,
                                DeserializationError::InvalidFieldValue)?;
-                FractionalSecond::Microseconds(us)
+                frac_second::encode_micros(us)
             }
             PrecisionTag::Nano => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..MAX_SERIALIZED_SIZE])?;
@@ -105,7 +106,7 @@ impl DateTimeSubSecond {
 
                 check_in_range(ns, NANOS_MIN, NANOS_MAX,
                                DeserializationError::InvalidFieldValue)?;
-                FractionalSecond::Nanoseconds(ns)
+                frac_second::encode_nanos(ns)
             }
         };
 
@@ -123,7 +124,7 @@ impl DateTimeSubSecond {
             hour: raw_hour,
             minute: raw_minute,
             second: raw_second,
-            frac_second: frac_second
+            frac_second_fw: frac_second_fw
         })
     }
 
@@ -159,7 +160,8 @@ impl DateTimeSubSecond {
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        let (precision_tag, first_subsecond_byte_fragment) = match self.frac_second {
+        let f = frac_second::decode_fixed_width(self.frac_second_fw);
+        let (precision_tag, first_subsecond_byte_fragment) = match f {
             FractionalSecond::None => (PRECISION_DTS_NONE_TAG, 0x0),
             FractionalSecond::Milliseconds(ms) => {
                 (PRECISION_DTS_MILLIS_TAG, (ms >> 4) as u8)
@@ -173,7 +175,7 @@ impl DateTimeSubSecond {
         };
 
         Self::serialize_raw(self.year, self.month, self.day, self.hour, self.minute,
-                            self.second, self.frac_second, precision_tag,
+                            self.second, f, precision_tag,
                             first_subsecond_byte_fragment, writer)
             .map_err(|_| SerializationError::IoError)
     }
@@ -269,7 +271,7 @@ impl Time for DateTimeSubSecond {
 
 impl SubSecond for DateTimeSubSecond {
     fn fractional_second(&self) -> FractionalSecond {
-        self.frac_second
+        frac_second::decode_fixed_width(self.frac_second_fw)
     }
 }
 
@@ -279,7 +281,7 @@ impl Serializable for DateTimeSubSecond {
     }
 
     fn serialized_size(&self) -> usize {
-        match self.frac_second {
+        match frac_second::decode_fixed_width(self.frac_second_fw) {
             FractionalSecond::Milliseconds(_) => 7,
             FractionalSecond::Microseconds(_) => 8,
             FractionalSecond::Nanoseconds(_) => MAX_SERIALIZED_SIZE,

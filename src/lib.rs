@@ -29,14 +29,6 @@ pub trait SubSecond {
     fn fractional_second(&self) -> FractionalSecond;
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum FractionalSecond {
-    Milliseconds(u16),
-    Microseconds(u32),
-    Nanoseconds(u32),
-    None
-}
-
 pub trait Offset {
     fn offset(&self) -> OffsetValue;
 }
@@ -57,6 +49,7 @@ mod date_time;
 mod date_time_offset;
 mod date_time_subsecond;
 mod date_time_subsecond_offset;
+mod frac_second;
 
 pub use date_only::DateOnly;
 pub use time_only::TimeOnly;
@@ -64,6 +57,7 @@ pub use date_time::DateTime;
 pub use date_time_offset::DateTimeOffset;
 pub use date_time_subsecond::DateTimeSubSecond;
 pub use date_time_subsecond_offset::DateTimeSubSecondOffset;
+pub use frac_second::FractionalSecond;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CreationError {

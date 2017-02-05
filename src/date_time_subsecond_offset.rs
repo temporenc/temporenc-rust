@@ -1,6 +1,7 @@
 use std::io::{Read, Write};
 
 use super::*;
+use super::frac_second;
 
 #[derive(Debug)]
 pub struct DateTimeSubSecondOffset {
@@ -10,7 +11,7 @@ pub struct DateTimeSubSecondOffset {
     hour: u8,
     minute: u8,
     second: u8,
-    frac_second: FractionalSecond,
+    frac_second_fw: u32,
     offset: u8
 }
 
@@ -30,7 +31,7 @@ impl DateTimeSubSecondOffset {
             hour: hour_num(hour, err_val)?,
             minute: minute_num(minute, err_val)?,
             second: second_num(second, err_val)?,
-            frac_second: frac_second,
+            frac_second_fw: frac_second::encode_fixed_width(&frac_second),
             offset: offset_num(offset, err_val)?
         })
     }
@@ -82,7 +83,7 @@ impl DateTimeSubSecondOffset {
         let byte5 = buf[5];
         let raw_second = ((byte4 & 0x07) << 3) | (byte5 >> 5);
 
-        let (frac_second, last_variable_byte) = match precision {
+        let (frac_second_fw, last_variable_byte) = match precision {
             PrecisionTag::Milli => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..(MIN_SERIALIZED_SIZE + 1)])?;
                 let mut ms = ((byte5 & 0x1F) as u16) << 5;
@@ -91,7 +92,7 @@ impl DateTimeSubSecondOffset {
 
                 check_in_range(ms, MILLIS_MIN, MILLIS_MAX,
                                DeserializationError::InvalidFieldValue)?;
-                (FractionalSecond::Milliseconds(ms), byte6)
+                (frac_second::encode_millis(ms), byte6)
             }
             PrecisionTag::Micro => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..(MIN_SERIALIZED_SIZE + 2)])?;
@@ -102,7 +103,7 @@ impl DateTimeSubSecondOffset {
 
                 check_in_range(us, MICROS_MIN, MICROS_MAX,
                                DeserializationError::InvalidFieldValue)?;
-                (FractionalSecond::Microseconds(us), byte7)
+                (frac_second::encode_micros(us), byte7)
             }
             PrecisionTag::Nano => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..MAX_SERIALIZED_SIZE])?;
@@ -115,9 +116,9 @@ impl DateTimeSubSecondOffset {
 
                 check_in_range(ns, NANOS_MIN, NANOS_MAX,
                                DeserializationError::InvalidFieldValue)?;
-                (FractionalSecond::Nanoseconds(ns), byte9)
+                (frac_second::encode_nanos(ns), byte9)
             },
-            PrecisionTag::None => (FractionalSecond::None, byte5),
+            PrecisionTag::None => (frac_second::encode_none(), byte5),
         };
 
         let raw_offset = match precision {
@@ -142,7 +143,7 @@ impl DateTimeSubSecondOffset {
             hour: raw_hour,
             minute: raw_minute,
             second: raw_second,
-            frac_second: frac_second,
+            frac_second_fw: frac_second_fw,
             offset: raw_offset
         })
     }
@@ -181,7 +182,8 @@ impl DateTimeSubSecondOffset {
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        let (precision_tag, first_var_length_byte_fragment) = match self.frac_second {
+        let f = frac_second::decode_fixed_width(self.frac_second_fw);
+        let (precision_tag, first_var_length_byte_fragment) = match f {
             FractionalSecond::Milliseconds(ms) => {
                 (PRECISION_DTSO_MILLIS_TAG, (ms >> 5) as u8)
             },
@@ -195,7 +197,7 @@ impl DateTimeSubSecondOffset {
         };
 
         Self::serialize_raw(self.year, self.month, self.day, self.hour, self.minute,
-                            self.second, self.frac_second, self.offset, precision_tag,
+                            self.second, f, self.offset, precision_tag,
                             first_var_length_byte_fragment, writer)
             .map_err(|_| SerializationError::IoError)
     }
@@ -299,7 +301,7 @@ impl Time for DateTimeSubSecondOffset {
 
 impl SubSecond for DateTimeSubSecondOffset {
     fn fractional_second(&self) -> FractionalSecond {
-        self.frac_second
+        frac_second::decode_fixed_width(self.frac_second_fw)
     }
 }
 
@@ -319,7 +321,7 @@ impl Serializable for DateTimeSubSecondOffset {
     }
 
     fn serialized_size(&self) -> usize {
-        match self.frac_second {
+        match frac_second::decode_fixed_width(self.frac_second_fw) {
             FractionalSecond::Milliseconds(_) => 8,
             FractionalSecond::Microseconds(_) => 9,
             FractionalSecond::Nanoseconds(_) => MAX_SERIALIZED_SIZE,
