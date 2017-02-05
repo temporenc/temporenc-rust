@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 
 use super::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct DateTimeSubSecondOffset {
     year: u16,
     month: u8,

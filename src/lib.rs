@@ -98,8 +98,8 @@ enum PrecisionTag {
     None
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum Type {
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+enum TemporalType {
     Date,
     Time,
     DateTime,

@@ -2,7 +2,7 @@ use std::io::{Read, Write, Error};
 
 use super::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct DateOnly {
     year: u16,
     month: u8,

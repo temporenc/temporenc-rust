@@ -2,7 +2,7 @@ use std::io::{Read, Write, Error};
 
 use super::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct TimeOnly {
     hour: u8,
     minute: u8,
