@@ -98,14 +98,14 @@ fn deser_dts_all_ns() {
 fn deser_dts_too_short() {
     let bytes = vec!(0x77, 0xBF, 0x07, 0x49);
     assert_eq!(DeserializationError::IoError,
-        DateTimeOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
+        DateTimeSubSecond::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
 }
 
 #[test]
 fn deser_dts_wrong_type_tag() {
     let bytes = vec!(0xF7, 0xBF, 0x07, 0x49, 0x93, 0x00);
     assert_eq!(DeserializationError::IncorrectTypeTag,
-        DateTimeOffset::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
+    DateTimeSubSecond::deserialize(&mut Cursor::new(bytes.as_slice())).unwrap_err());
 }
 
 #[test]
