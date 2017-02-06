@@ -1,4 +1,4 @@
-use std::io::{Read, Write, Error};
+use std::io::{Read, Write};
 
 use super::*;
 
@@ -75,32 +75,15 @@ impl DateTime {
         })
     }
 
-    pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
-                                          hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
-                                          writer: &mut W) -> Result<usize, ComponentSerializationError> {
-        let err_val = ComponentSerializationError::InvalidFieldValue;
-        
-        Self::serialize_raw(year_num(year, err_val)?, month_num(month, err_val)?,
-                            day_num(day, err_val)?, hour_num(hour, err_val)?,
-                            minute_num(minute, err_val)?, second_num(second, err_val)?, writer)
-            .map_err(|_| ComponentSerializationError::IoError)
-    }
-
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        Self::serialize_raw(self.year, self.month, self.day, self.hour, self.minute, self.second,
-                            writer)
-            .map_err(|_| SerializationError::IoError)
-    }
-
-    fn serialize_raw<W: Write>(year: u16, month: u8, day: u8, hour: u8, minute: u8,
-                               second: u8, writer: &mut W) -> Result<usize, Error> {
-        let b0 = DATE_TIME_TAG | (year >> 6) as u8;
-        let b1 = ((year << 2) as u8) | (month >> 2);
-        let b2 = (month << 6) | (day << 1) | (hour >> 4);
-        let b3 = (hour << 4) | (minute >> 2);
-        let b4 = (minute << 6) | second;
+        let b0 = DATE_TIME_TAG | (self.year >> 6) as u8;
+        let b1 = ((self.year << 2) as u8) | (self.month >> 2);
+        let b2 = (self.month << 6) | (self.day << 1) | (self.hour >> 4);
+        let b3 = (self.hour << 4) | (self.minute >> 2);
+        let b4 = (self.minute << 6) | self.second;
 
         write_array_map_err(&[b0, b1, b2, b3, b4], writer)
+                    .map_err(|_| SerializationError::IoError)
     }
 }
 

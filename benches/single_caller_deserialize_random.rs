@@ -18,7 +18,7 @@ fn deserialize_random_date_only(b: &mut Bencher) {
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
     for _ in 0..NUM_ITEMS {
-        DateOnly::serialize_components(r.year(), r.month(), r.day(), &mut v).unwrap();
+        DateOnly::new(r.year(), r.month(), r.day()).unwrap().serialize(&mut v).unwrap();
     }
 
     b.bytes = v.len() as u64;
@@ -39,7 +39,7 @@ fn deserialize_random_time_only(b: &mut Bencher) {
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
     for _ in 0..NUM_ITEMS {
-        TimeOnly::serialize_components(r.hour(), r.minute(), r.second(), &mut v).unwrap();
+        TimeOnly::new(r.hour(), r.minute(), r.second()).unwrap().serialize(&mut v).unwrap();
     }
 
     b.bytes = v.len() as u64;
@@ -60,8 +60,8 @@ fn deserialize_random_date_time(b: &mut Bencher) {
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
     for _ in 0..NUM_ITEMS {
-        DateTime::serialize_components(r.year(), r.month(), r.day(), r.hour(), r.minute(),
-                                       r.second(), &mut v).unwrap();
+        DateTime::new(r.year(), r.month(), r.day(), r.hour(), r.minute(),
+                                       r.second()).unwrap().serialize(&mut v).unwrap();
     }
 
     b.bytes = v.len() as u64;
@@ -82,8 +82,8 @@ fn deserialize_random_date_time_offset(b: &mut Bencher) {
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
     for _ in 0..NUM_ITEMS {
-        DateTimeOffset::serialize_components(r.year(), r.month(), r.day(), r.hour(), r.minute(),
-                                             r.second(), r.offset(), &mut v).unwrap();
+        DateTimeOffset::new(r.year(), r.month(), r.day(), r.hour(), r.minute(), r.second(),
+                            r.offset()).unwrap().serialize(&mut v).unwrap();
     }
 
     b.bytes = v.len() as u64;

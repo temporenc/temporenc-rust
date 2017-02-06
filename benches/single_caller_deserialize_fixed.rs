@@ -22,7 +22,7 @@ fn deserialize_fixed_date_only(b: &mut Bencher) {
     let day = bb(Some(15));
 
     for _ in 0..NUM_ITEMS {
-        DateOnly::serialize_components(year, month, day, &mut v).unwrap();
+        DateOnly::new(year, month, day).unwrap().serialize(&mut v).unwrap();
     };
 
     b.bytes = v.len() as u64;
@@ -46,7 +46,7 @@ fn deserialize_fixed_time_only(b: &mut Bencher) {
     let second = bb(Some(60));
 
     for _ in 0..NUM_ITEMS {
-        TimeOnly::serialize_components(hour, minute, second, &mut v).unwrap();
+        TimeOnly::new(hour, minute, second).unwrap().serialize(&mut v).unwrap();
     };
 
     b.bytes = v.len() as u64;
@@ -73,7 +73,7 @@ fn deserialize_fixed_date_time(b: &mut Bencher) {
     let second = bb(Some(60));
 
     for _ in 0..NUM_ITEMS {
-        DateTime::serialize_components(year, month, day, hour, minute, second, &mut v).unwrap();
+        DateTime::new(year, month, day, hour, minute, second).unwrap().serialize(&mut v).unwrap();
     };
 
     b.bytes = v.len() as u64;
@@ -101,8 +101,8 @@ fn deserialize_fixed_date_time_offset(b: &mut Bencher) {
     let offset = bb(OffsetValue::UtcOffset(120));
 
     for _ in 0..NUM_ITEMS {
-        DateTimeOffset::serialize_components(year, month, day, hour, minute, second, offset,
-                                             &mut v).unwrap();
+        DateTimeOffset::new(year, month, day, hour, minute, second, offset).unwrap()
+            .serialize(&mut v).unwrap();
     }
 
     b.bytes = v.len() as u64;

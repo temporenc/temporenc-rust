@@ -46,27 +46,6 @@ fn deser_d_too_short() {
 }
 
 #[test]
-fn date_roundtrip_components() {
-    let mut vec = Vec::new();
-
-    for year in once(None).chain((YEAR_MIN..(YEAR_MAX + 1)).map(|y| Some(y))) {
-        for month in once(None).chain((MONTH_MIN..(MONTH_MAX + 1)).map(|m| Some(m))) {
-            for day in once(None).chain((DAY_MIN..(DAY_MAX + 1)).map(|d| Some(d))) {
-                vec.clear();
-                let bytes_written = DateOnly::serialize_components(year, month, day, &mut vec).unwrap();
-                assert_eq!(3, bytes_written);
-                assert_eq!(bytes_written, vec.len());
-                let deser = DateOnly::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
-
-                assert_eq!(year, deser.year());
-                assert_eq!(month, deser.month());
-                assert_eq!(day, deser.day());
-            };
-        };
-    }
-}
-
-#[test]
 fn date_roundtrip_struct() {
     let mut vec = Vec::new();
 
@@ -84,26 +63,6 @@ fn date_roundtrip_struct() {
                 assert_eq!(year, deser.year());
                 assert_eq!(month, deser.month());
                 assert_eq!(day, deser.day());
-            };
-        };
-    }
-}
-
-#[test]
-fn date_serialize_struct_matches_components() {
-    let mut vec_components = Vec::new();
-    let mut vec_struct = Vec::new();
-
-    for year in once(None).chain((YEAR_MIN..(YEAR_MAX + 1)).map(|y| Some(y))) {
-        for month in once(None).chain((MONTH_MIN..(MONTH_MAX + 1)).map(|m| Some(m))) {
-            for day in once(None).chain((DAY_MIN..(DAY_MAX + 1)).map(|d| Some(d))) {
-                vec_components.clear();
-                DateOnly::serialize_components(year, month, day, &mut vec_components).unwrap();
-
-                vec_struct.clear();
-                DateOnly::new(year, month, day).unwrap().serialize(&mut vec_struct).unwrap();
-
-                assert_eq!(vec_components, vec_struct);
             };
         };
     }

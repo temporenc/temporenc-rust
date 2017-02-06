@@ -1,4 +1,4 @@
-use std::io::{Read, Write, Error};
+use std::io::{Read, Write};
 
 use super::*;
 
@@ -83,36 +83,16 @@ impl DateTimeOffset {
         })
     }
 
-    pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>, day: Option<u8>,
-                                          hour: Option<u8>, minute: Option<u8>, second: Option<u8>,
-                                          offset: OffsetValue, writer: &mut W)
-                                          -> Result<usize, ComponentSerializationError> {
-        let err_val = ComponentSerializationError::InvalidFieldValue;
-
-        Self::serialize_raw(year_num(year, err_val)?, month_num(month, err_val)?,
-                            day_num(day, err_val)?, hour_num(hour, err_val)?,
-                            minute_num(minute, err_val)?, second_num(second, err_val)?,
-                            offset_num(offset, err_val)?, writer)
-            .map_err(|_| ComponentSerializationError::IoError)
-    }
-
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        Self::serialize_raw(self.year, self.month, self.day, self.hour, self.minute,
-                            self.second, self.offset, writer)
-            .map_err(|_| SerializationError::IoError)
-    }
-
-    fn serialize_raw<W: Write>(year: u16, month: u8, day: u8, hour: u8, minute: u8,
-                               second: u8, offset: u8, writer: &mut W)
-                               -> Result<usize, Error> {
-        let b0 = DATE_TIME_OFFSET_TAG | (year >> 7) as u8;
-        let b1 = ((year << 1) as u8) | (month >> 3);
-        let b2 = (month << 5) | day;
-        let b3 = (hour << 3) | (minute >> 3);
-        let b4 = (minute << 5) | (second >> 1);
-        let b5 = (second << 7) | offset;
+        let b0 = DATE_TIME_OFFSET_TAG | (self.year >> 7) as u8;
+        let b1 = ((self.year << 1) as u8) | (self.month >> 3);
+        let b2 = (self.month << 5) | self.day;
+        let b3 = (self.hour << 3) | (self.minute >> 3);
+        let b4 = (self.minute << 5) | (self.second >> 1);
+        let b5 = (self.second << 7) | self.offset;
 
         write_array_map_err(&[b0, b1, b2, b3, b4, b5], writer)
+                    .map_err(|_| SerializationError::IoError)
     }
 }
 

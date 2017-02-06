@@ -1,4 +1,4 @@
-use std::io::{Read, Write, Error};
+use std::io::{Read, Write};
 
 use super::*;
 
@@ -54,26 +54,13 @@ impl TimeOnly {
         })
     }
 
-    pub fn serialize_components<W: Write>(hour: Option<u8>, minute: Option<u8>, second: Option<u8>, writer: &mut W)
-                                          -> Result<usize, ComponentSerializationError> {
-        let err_val = ComponentSerializationError::InvalidFieldValue;
-
-        Self::serialize_raw( hour_num(hour, err_val)?, minute_num(minute, err_val)?,
-                             second_num(second, err_val)?, writer)
-            .map_err(|_| ComponentSerializationError::IoError)
-    }
-
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        Self::serialize_raw(self.hour, self.minute, self.second, writer)
-            .map_err(|_| SerializationError::IoError)
-    }
-
-    fn serialize_raw<W: Write>(hour: u8, minute: u8, second: u8, writer: &mut W) -> Result<usize, Error> {
-        let b0 = TIME_TAG | hour >> 4;
-        let b1 = (hour << 4) | (minute >> 2);
-        let b2 = (minute << 6) | (second);
+        let b0 = TIME_TAG | self.hour >> 4;
+        let b1 = (self.hour << 4) | (self.minute >> 2);
+        let b2 = (self.minute << 6) | (self.second);
 
         write_array_map_err(&[b0, b1, b2], writer)
+            .map_err(|_| SerializationError::IoError)
     }
 }
 
