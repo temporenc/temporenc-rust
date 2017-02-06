@@ -83,14 +83,6 @@ pub enum ComponentSerializationError {
     IoError
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum PrecisionTag {
-    Milli,
-    Micro,
-    Nano,
-    None
-}
-
 // human-visible range ends (not necessarily internal encoding)
 pub const YEAR_MIN: u16 = 0;
 pub const YEAR_MAX: u16 = 4094;

@@ -46,16 +46,6 @@ impl DateTimeSubSecondOffset {
             return Err(DeserializationError::IncorrectTypeTag);
         }
 
-        let precision = match byte0 & PRECISION_DTSO_MASK {
-            PRECISION_DTSO_MILLIS_TAG => PrecisionTag::Milli,
-            PRECISION_DTSO_MICROS_TAG => PrecisionTag::Micro,
-            PRECISION_DTSO_NANOS_TAG => PrecisionTag::Nano,
-            PRECISION_DTSO_NONE_TAG => PrecisionTag::None,
-            _ => {
-                return Err(DeserializationError::IncorrectPrecisionTag);
-            }
-        };
-
         // 3-bit tag, 2-bit subsecond precision tag, 12-bit year, 4-bit month, 5-bit day, 5-bit hour,
         // 6-bit minute, 6-bit second, (0, 10, 20, or 30)-bit fractional second, 7-bit offset
         // TTTP PYYY | YYYY YYYY | YMMM MDDD | DDHH HHHM | MMMM MSSS
@@ -83,8 +73,8 @@ impl DateTimeSubSecondOffset {
         let byte5 = buf[5];
         let raw_second = ((byte4 & 0x07) << 3) | (byte5 >> 5);
 
-        let (frac_second_fw, last_variable_byte) = match precision {
-            PrecisionTag::Milli => {
+        let (frac_second_fw, raw_offset) = match byte0 & PRECISION_DTSO_MASK {
+            PRECISION_DTSO_MILLIS_TAG => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..(MIN_SERIALIZED_SIZE + 1)])?;
                 let mut ms = ((byte5 & 0x1F) as u16) << 5;
                 let byte6 = buf[6];
@@ -92,9 +82,11 @@ impl DateTimeSubSecondOffset {
 
                 check_in_range(ms, MILLIS_MIN, MILLIS_MAX,
                                DeserializationError::InvalidFieldValue)?;
-                (frac_second::encode_millis(ms), byte6)
+
+                let raw_offset = ((byte6 & 0x07) << 4) | (buf[7] >> 4);
+                (frac_second::encode_millis(ms), raw_offset)
             }
-            PrecisionTag::Micro => {
+            PRECISION_DTSO_MICROS_TAG => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..(MIN_SERIALIZED_SIZE + 2)])?;
                 let mut us = ((byte5 & 0x1F) as u32) << 15;
                 us |= (buf[6] as u32) << 7;
@@ -103,9 +95,12 @@ impl DateTimeSubSecondOffset {
 
                 check_in_range(us, MICROS_MIN, MICROS_MAX,
                                DeserializationError::InvalidFieldValue)?;
-                (frac_second::encode_micros(us), byte7)
+
+                let raw_offset = ((byte7 & 0x01) << 6) | (buf[8] >> 2);
+
+                (frac_second::encode_micros(us), raw_offset)
             }
-            PrecisionTag::Nano => {
+            PRECISION_DTSO_NANOS_TAG => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..MAX_SERIALIZED_SIZE])?;
                 let mut ns = ((byte5 & 0x1F) as u32) << 25;
                 ns |= (buf[6] as u32) << 17;
@@ -116,16 +111,17 @@ impl DateTimeSubSecondOffset {
 
                 check_in_range(ns, NANOS_MIN, NANOS_MAX,
                                DeserializationError::InvalidFieldValue)?;
-                (frac_second::encode_nanos(ns), byte9)
-            },
-            PrecisionTag::None => (frac_second::encode_none(), byte5),
-        };
 
-        let raw_offset = match precision {
-            PrecisionTag::Milli => ((last_variable_byte & 0x07) << 4) | (buf[7] >> 4),
-            PrecisionTag::Micro => ((last_variable_byte & 0x01) << 6) | (buf[8] >> 2),
-            PrecisionTag::Nano => last_variable_byte & 0x7F,
-            PrecisionTag::None => ((last_variable_byte & 0x1F) << 2) | (buf[6] >> 6),
+                let raw_offset = byte9 & 0x7F;
+                (frac_second::encode_nanos(ns), raw_offset)
+            },
+            PRECISION_DTSO_NONE_TAG => {
+                let raw_offset = ((byte5 & 0x1F) << 2) | (buf[6] >> 6);
+                (frac_second::encode_none(), raw_offset)
+            },
+            _ => {
+                return Err(DeserializationError::IncorrectPrecisionTag);
+            }
         };
 
         // no need to check year as every possible number is a valid year

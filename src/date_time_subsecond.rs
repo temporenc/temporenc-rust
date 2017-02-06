@@ -43,16 +43,6 @@ impl DateTimeSubSecond {
             return Err(DeserializationError::IncorrectTypeTag);
         }
 
-        let precision = match byte0 & PRECISION_DTS_MASK {
-            PRECISION_DTS_MILLIS_TAG => PrecisionTag::Milli,
-            PRECISION_DTS_MICROS_TAG => PrecisionTag::Micro,
-            PRECISION_DTS_NANOS_TAG => PrecisionTag::Nano,
-            PRECISION_DTS_NONE_TAG => PrecisionTag::None,
-            _ => {
-                return Err(DeserializationError::IncorrectPrecisionTag);
-            }
-        };
-
         // 2-bit tag, 2-bit subsecond precision tag, 12-bit year, 4-bit month, 5-bit day, 5-bit hour,
         // 6-bit minute, 6-bit second, and 0, 10, 20, or 30-bit fractional second
         // TTPP YYYY | YYYY YYYY | MMMM DDDD | DHHH HHMM
@@ -76,9 +66,9 @@ impl DateTimeSubSecond {
         let byte5 = buf[5];
         let raw_second = ((byte4 & 0x0F) << 2) | ((byte5 & 0xC0) >> 6);
 
-        let frac_second_fw = match precision {
-            PrecisionTag::None => frac_second::encode_none(),
-            PrecisionTag::Milli => {
+        let frac_second_fw = match byte0 & PRECISION_DTS_MASK {
+            PRECISION_DTS_NONE_TAG => frac_second::encode_none(),
+            PRECISION_DTS_MILLIS_TAG => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..(MIN_SERIALIZED_SIZE + 1)])?;
                 let mut ms = ((byte5 & 0x3F) as u16) << 4;
                 ms |= (buf[6] >> 4) as u16;
@@ -87,7 +77,7 @@ impl DateTimeSubSecond {
                                DeserializationError::InvalidFieldValue)?;
                 frac_second::encode_millis(ms)
             }
-            PrecisionTag::Micro => {
+            PRECISION_DTS_MICROS_TAG => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..(MIN_SERIALIZED_SIZE + 2)])?;
                 let mut us = ((byte5 & 0x3F) as u32) << 14;
                 us |= (buf[6] as u32) << 6;
@@ -97,7 +87,7 @@ impl DateTimeSubSecond {
                                DeserializationError::InvalidFieldValue)?;
                 frac_second::encode_micros(us)
             }
-            PrecisionTag::Nano => {
+            PRECISION_DTS_NANOS_TAG  => {
                 read_exact(reader, &mut buf[MIN_SERIALIZED_SIZE..MAX_SERIALIZED_SIZE])?;
                 let mut ns = ((byte5 & 0x3F) as u32) << 24;
                 ns |= (buf[6] as u32) << 16;
@@ -107,6 +97,9 @@ impl DateTimeSubSecond {
                 check_in_range(ns, NANOS_MIN, NANOS_MAX,
                                DeserializationError::InvalidFieldValue)?;
                 frac_second::encode_nanos(ns)
+            },
+            _ => {
+                return Err(DeserializationError::IncorrectPrecisionTag);
             }
         };
 
