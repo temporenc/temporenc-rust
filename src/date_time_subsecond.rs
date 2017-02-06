@@ -128,92 +128,52 @@ impl DateTimeSubSecond {
         })
     }
 
-    pub fn serialize_components<W: Write>(year: Option<u16>, month: Option<u8>,
-                                          day: Option<u8>, hour: Option<u8>,
-                                          minute: Option<u8>, second: Option<u8>,
-                                          frac_second: FractionalSecond, writer: &mut W)
-                                          -> Result<usize, ComponentSerializationError> {
-        let err_val = ComponentSerializationError::InvalidFieldValue;
-
-        let (precision_tag, first_subsecond_byte_fragment) = match frac_second {
-            FractionalSecond::None => (PRECISION_DTS_NONE_TAG, 0x0),
-            FractionalSecond::Milliseconds(ms) => {
-                check_in_range(ms, MILLIS_MIN, MILLIS_MAX, err_val)?;
-                (PRECISION_DTS_MILLIS_TAG, (ms >> 4) as u8)
-            },
-            FractionalSecond::Microseconds(us) => {
-                check_in_range(us, MICROS_MIN, MICROS_MAX, err_val)?;
-                (PRECISION_DTS_MICROS_TAG, (us >> 14) as u8)
-            },
-            FractionalSecond::Nanoseconds(ns) => {
-                check_in_range(ns, NANOS_MIN, NANOS_MAX, err_val)?;
-                (PRECISION_DTS_NANOS_TAG, (ns >> 24) as u8)
-            }
-        };
-
-        Self::serialize_raw(year_num(year, err_val)?, month_num(month, err_val)?,
-                            day_num(day, err_val)?, hour_num(hour, err_val)?,
-                            minute_num(minute, err_val)?, second_num(second, err_val)?,
-                            frac_second, precision_tag, first_subsecond_byte_fragment,
-                            writer)
-            .map_err(|_| ComponentSerializationError::IoError)
-    }
-
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        let f = frac_second::decode_fixed_width(self.frac_second_fw);
-        let (precision_tag, first_subsecond_byte_fragment) = match f {
-            FractionalSecond::None => (PRECISION_DTS_NONE_TAG, 0x0),
-            FractionalSecond::Milliseconds(ms) => {
-                (PRECISION_DTS_MILLIS_TAG, (ms >> 4) as u8)
+        let partial_first_byte = DATE_TIME_SUBSECOND_TAG | (self.year >> 8) as u8;
+
+        let b1 = self.year as u8;
+        let b2 = (self.month << 4) | (self.day >> 1);
+        let b3 = (self.day << 7) | (self.hour << 2) | (self.minute >> 4);
+        let b4 = (self.minute << 4) | (self.second >> 2);
+        let b5_partial = self.second << 6;
+
+        let mut buf = [0, b1, b2, b3, b4, 0, 0, 0, 0];
+
+        let frac_prefix = frac_second::FRAC_SECOND_FIXED_WIDTH_PREFIX_MASK & self.frac_second_fw;
+        let frac_value = frac_second::FRAC_SECOND_FIXED_WIDTH_VALUE_MASK & self.frac_second_fw;
+
+        let slice_end_index = match frac_prefix {
+            frac_second::FRAC_SECOND_FIXED_WIDTH_NONE => {
+                buf[0] = partial_first_byte | PRECISION_DTS_NONE_TAG;
+                buf[5] = b5_partial;
+                6
             },
-            FractionalSecond::Microseconds(us) => {
-                (PRECISION_DTS_MICROS_TAG, (us >> 14) as u8)
-            },
-            FractionalSecond::Nanoseconds(ns) => {
-                (PRECISION_DTS_NANOS_TAG, (ns >> 24) as u8)
-            }
-        };
-
-        Self::serialize_raw(self.year, self.month, self.day, self.hour, self.minute,
-                            self.second, f, precision_tag,
-                            first_subsecond_byte_fragment, writer)
-            .map_err(|_| SerializationError::IoError)
-    }
-
-    fn serialize_raw<W: Write>(year: u16, month: u8, day: u8, hour: u8, minute: u8,
-                               second: u8, frac_second: FractionalSecond,
-                               precision_tag: u8, first_subsecond_byte_fragment: u8,
-                               writer: &mut W) -> Result<usize, Error> {
-        let b0 = DATE_TIME_SUBSECOND_TAG | precision_tag | (year >> 8) as u8;
-        let b1 = year as u8;
-        let b2 = (month << 4) | (day >> 1);
-        let b3 = (day << 7) | (hour << 2) | (minute >> 4);
-        let b4 = (minute << 4) | (second >> 2);
-        let b5 = (second << 6) | first_subsecond_byte_fragment;
-
-        let mut buf = [b0, b1, b2, b3, b4, b5, 0, 0, 0];
-
-        // write variable length fractional second
-        let slice_end_index = match frac_second {
-            FractionalSecond::None => 6,
-            FractionalSecond::Milliseconds(ms) => {
-                buf[6] = (ms << 4) as u8;
+            frac_second::FRAC_SECOND_FIXED_WIDTH_MILLI => {
+                buf[0] = partial_first_byte | PRECISION_DTS_MILLIS_TAG;
+                buf[5] = b5_partial | (frac_value >> 4) as u8;
+                buf[6] = (frac_value << 4) as u8;
                 7
             },
-            FractionalSecond::Microseconds(us) => {
-                buf[6] = (us >> 6) as u8;
-                buf[7] = (us << 2) as u8;
+            frac_second::FRAC_SECOND_FIXED_WIDTH_MICRO => {
+                buf[0] = partial_first_byte | PRECISION_DTS_MICROS_TAG;
+                buf[5] = b5_partial | (frac_value >> 14) as u8;
+                buf[6] = (frac_value >> 6) as u8;
+                buf[7] = (frac_value << 2) as u8;
                 8
             },
-            FractionalSecond::Nanoseconds(ns) => {
-                buf[6] = (ns >> 16) as u8;
-                buf[7] = (ns >> 8) as u8;
-                buf[8] = ns as u8;
+            frac_second::FRAC_SECOND_FIXED_WIDTH_NANO => {
+                buf[0] = partial_first_byte | PRECISION_DTS_NANOS_TAG;
+                buf[5] = b5_partial | (frac_value >> 24) as u8;
+                buf[6] = (frac_value >> 16) as u8;
+                buf[7] = (frac_value >> 8) as u8;
+                buf[8] = frac_value as u8;
                 9
-            }
+            },
+            _ => panic!("Corrupt fixed width encoded fractional second")
         };
 
         write_array_map_err(&buf[0..slice_end_index], writer)
+            .map_err(|_| SerializationError::IoError)
     }
 }
 

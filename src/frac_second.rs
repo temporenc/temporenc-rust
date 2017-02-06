@@ -46,12 +46,12 @@ pub fn decode_fixed_width(encoded: u32) -> FractionalSecond {
 }
 
 // 2-bit indicators for fixed-width encoding of fractional seconds
-const FRAC_SECOND_FIXED_WIDTH_NONE: u32 = 0x00_00_00_00;
-const FRAC_SECOND_FIXED_WIDTH_MILLI: u32 = 0x40_00_00_00;
-const FRAC_SECOND_FIXED_WIDTH_MICRO: u32 = 0x80_00_00_00;
-const FRAC_SECOND_FIXED_WIDTH_NANO: u32 = 0xC0_00_00_00;
-const FRAC_SECOND_FIXED_WIDTH_PREFIX_MASK: u32 = 0xC0_00_00_00;
-const FRAC_SECOND_FIXED_WIDTH_VALUE_MASK: u32 = 0x3F_FF_FF_FF;
+pub const FRAC_SECOND_FIXED_WIDTH_NONE: u32 = 0x00_00_00_00;
+pub const FRAC_SECOND_FIXED_WIDTH_MILLI: u32 = 0x40_00_00_00;
+pub const FRAC_SECOND_FIXED_WIDTH_MICRO: u32 = 0x80_00_00_00;
+pub const FRAC_SECOND_FIXED_WIDTH_NANO: u32 = 0xC0_00_00_00;
+pub const FRAC_SECOND_FIXED_WIDTH_PREFIX_MASK: u32 = 0xC0_00_00_00;
+pub const FRAC_SECOND_FIXED_WIDTH_VALUE_MASK: u32 = 0x3F_FF_FF_FF;
 
 #[cfg(test)]
 mod tests {

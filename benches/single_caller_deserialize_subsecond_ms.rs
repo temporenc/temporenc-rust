@@ -26,8 +26,8 @@ fn deserialize_fixed_date_time_subsecond_ms(b: &mut Bencher) {
     let frac_second = bb(FractionalSecond::Milliseconds(123));
 
     for _ in 0..NUM_ITEMS {
-        DateTimeSubSecond::serialize_components(year, month, day, hour, minute, second,
-                                                frac_second, &mut v).unwrap();
+        DateTimeSubSecond::new(year, month, day, hour, minute, second, frac_second).unwrap()
+            .serialize(&mut v).unwrap();
     };
 
     b.bytes = v.len() as u64;

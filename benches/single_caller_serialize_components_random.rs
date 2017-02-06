@@ -83,26 +83,6 @@ fn serialize_components_random_date_time_offset(b: &mut Bencher) {
 }
 
 #[bench]
-fn serialize_components_random_date_time_subsecond(b: &mut Bencher) {
-    let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecond::max_serialized_size());
-    let mut r = RandomFieldSource::new(rand::weak_rng());
-    b.iter(|| {
-        let year = r.year();
-        let month = r.month();
-        let day = r.day();
-        let hour = r.hour();
-        let minute = r.minute();
-        let second = r.second();
-        let frac_second = r.fractional_second();
-        for _ in 0..NUM_ITEMS {
-            DateTimeSubSecond::serialize_components(year, month, day, hour, minute, second,
-                                                          frac_second, &mut v).unwrap();
-        };
-        v.clear();
-    })
-}
-
-#[bench]
 fn serialize_components_random_date_time_subsecond_offset(b: &mut Bencher) {
     let mut v: Vec<u8> = Vec::with_capacity(NUM_ITEMS * DateTimeSubSecondOffset::max_serialized_size());
     let mut r = RandomFieldSource::new(rand::weak_rng());

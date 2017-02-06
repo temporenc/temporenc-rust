@@ -104,9 +104,8 @@ fn deserialize_random_date_time_subsecond(b: &mut Bencher) {
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
     for _ in 0..NUM_ITEMS {
-        DateTimeSubSecond::serialize_components(r.year(), r.month(), r.day(), r.hour(),
-                                                r.minute(), r.second(), r.fractional_second(),
-                                                &mut v).unwrap();
+        DateTimeSubSecond::new(r.year(), r.month(), r.day(), r.hour(), r.minute(), r.second(),
+                               r.fractional_second()).unwrap().serialize(&mut v).unwrap();
     }
 
     b.bytes = v.len() as u64;
