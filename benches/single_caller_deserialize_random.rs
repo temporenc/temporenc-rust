@@ -126,9 +126,9 @@ fn deserialize_random_date_time_subsecond_offset(b: &mut Bencher) {
 
     let mut r = RandomFieldSource::new(rand::weak_rng());
     for _ in 0..NUM_ITEMS {
-        DateTimeSubSecondOffset::serialize_components(r.year(), r.month(), r.day(), r.hour(),
-                                                      r.minute(), r.second(), r.fractional_second(),
-                                                      r.offset(), &mut v).unwrap();
+        DateTimeSubSecondOffset::new(r.year(), r.month(), r.day(), r.hour(), r.minute(), r.second(),
+                                     r.fractional_second(), r.offset()).unwrap()
+            .serialize(&mut v).unwrap();
     }
 
     b.bytes = v.len() as u64;

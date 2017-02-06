@@ -127,29 +127,9 @@ fn roundtrip_dtso_all_year_month_day() {
                 let frac_second = FractionalSecond::Microseconds(12345);
                 let offset = OffsetValue::UtcOffset(45);
 
-                serialize_components_and_check(year, month, day, hour, minute, second, frac_second, offset, &mut vec);
+                serialize_struct_and_check(year, month, day, hour, minute, second, frac_second, offset, &mut vec);
             }
         }
-    }
-}
-
-#[test]
-fn roundtrip_components_dtso_all_random() {
-    let mut vec = Vec::new();
-
-    let mut random_fields = RandomFieldSource::new(rand::weak_rng());
-
-    for _ in 0..1_000_000 {
-        let year = random_fields.year();
-        let month = random_fields.month();
-        let day = random_fields.day();
-        let hour = random_fields.hour();
-        let minute = random_fields.minute();
-        let second = random_fields.second();
-        let fractional_second = random_fields.fractional_second();
-        let offset = random_fields.offset();
-        serialize_components_and_check(year, month, day, hour, minute, second,
-                                       fractional_second, offset, &mut vec);
     }
 }
 
@@ -171,28 +151,6 @@ fn roundtrip_struct_dtso_all_random() {
         serialize_struct_and_check(year, month, day, hour, minute, second,
                                        fractional_second, offset, &mut vec);
     }
-}
-
-fn serialize_components_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
-                                  minute: Option<u8>, second: Option<u8>, frac_second: FractionalSecond,
-                                  offset: OffsetValue, vec: &mut Vec<u8>) {
-    vec.clear();
-    let expected_length = dtso_serialized_length(frac_second);
-    assert_eq!(expected_length, DateTimeSubSecondOffset::serialize_components(
-        year, month, day, hour, minute, second, frac_second, offset, vec).unwrap());
-    let dt = DateTimeSubSecondOffset::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
-
-    assert_eq!(year, dt.year());
-    assert_eq!(month, dt.month());
-    assert_eq!(day, dt.day());
-
-    assert_eq!(hour, dt.hour());
-    assert_eq!(minute, dt.minute());
-    assert_eq!(second, dt.second());
-
-    assert_eq!(frac_second, dt.fractional_second());
-
-    assert_eq!(offset, dt.offset());
 }
 
 fn serialize_struct_and_check(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
@@ -217,13 +175,4 @@ fn serialize_struct_and_check(year: Option<u16>, month: Option<u8>, day: Option<
     assert_eq!(frac_second, dt.fractional_second());
 
     assert_eq!(offset, dt.offset());
-}
-
-fn dtso_serialized_length(frac_second: FractionalSecond) -> usize {
-    match frac_second {
-        FractionalSecond::Milliseconds(_) => 8,
-        FractionalSecond::Microseconds(_) => 9,
-        FractionalSecond::Nanoseconds(_) => 10,
-        FractionalSecond::None => 7,
-    }
 }

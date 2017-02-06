@@ -160,8 +160,8 @@ fn deserialize_fixed_date_time_subsecond_ns_offset(b: &mut Bencher) {
     let offset = bb(OffsetValue::UtcOffset(120));
 
     for _ in 0..NUM_ITEMS {
-        DateTimeSubSecondOffset::serialize_components(year, month, day, hour, minute, second,
-                                                      frac_second, offset, &mut v).unwrap();
+        DateTimeSubSecondOffset::new(year, month, day, hour, minute, second, frac_second, offset)
+            .unwrap().serialize(&mut v).unwrap();
     };
 
     b.bytes = v.len() as u64;

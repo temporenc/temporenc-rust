@@ -129,7 +129,7 @@ impl DateTimeSubSecond {
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        let partial_first_byte = DATE_TIME_SUBSECOND_TAG | (self.year >> 8) as u8;
+        let b0_partial = DATE_TIME_SUBSECOND_TAG | (self.year >> 8) as u8;
 
         let b1 = self.year as u8;
         let b2 = (self.month << 4) | (self.day >> 1);
@@ -144,25 +144,25 @@ impl DateTimeSubSecond {
 
         let slice_end_index = match frac_prefix {
             frac_second::FRAC_SECOND_FIXED_WIDTH_NONE => {
-                buf[0] = partial_first_byte | PRECISION_DTS_NONE_TAG;
+                buf[0] = b0_partial | PRECISION_DTS_NONE_TAG;
                 buf[5] = b5_partial;
                 6
             },
             frac_second::FRAC_SECOND_FIXED_WIDTH_MILLI => {
-                buf[0] = partial_first_byte | PRECISION_DTS_MILLIS_TAG;
+                buf[0] = b0_partial | PRECISION_DTS_MILLIS_TAG;
                 buf[5] = b5_partial | (frac_value >> 4) as u8;
                 buf[6] = (frac_value << 4) as u8;
                 7
             },
             frac_second::FRAC_SECOND_FIXED_WIDTH_MICRO => {
-                buf[0] = partial_first_byte | PRECISION_DTS_MICROS_TAG;
+                buf[0] = b0_partial | PRECISION_DTS_MICROS_TAG;
                 buf[5] = b5_partial | (frac_value >> 14) as u8;
                 buf[6] = (frac_value >> 6) as u8;
                 buf[7] = (frac_value << 2) as u8;
                 8
             },
             frac_second::FRAC_SECOND_FIXED_WIDTH_NANO => {
-                buf[0] = partial_first_byte | PRECISION_DTS_NANOS_TAG;
+                buf[0] = b0_partial | PRECISION_DTS_NANOS_TAG;
                 buf[5] = b5_partial | (frac_value >> 24) as u8;
                 buf[6] = (frac_value >> 16) as u8;
                 buf[7] = (frac_value >> 8) as u8;
