@@ -2,6 +2,7 @@ use std::io::{Read, Write};
 
 use super::*;
 
+/// A Date and Time.
 #[derive(Debug, PartialEq)]
 pub struct DateTime {
     year: u16,
@@ -25,54 +26,6 @@ impl DateTime {
             second: second_num(second)?,
         })
     }
-
-    pub fn deserialize<R: Read>(reader: &mut R) -> Result<DateTime, DeserializationError> {
-        let mut buf = [0; SERIALIZED_SIZE];
-        read_exact(reader, &mut buf)?;
-
-        let byte0 = buf[0];
-
-        if byte0 & 0b1100_0000 != DATE_TIME_TAG {
-            return Err(DeserializationError::IncorrectTypeTag);
-        }
-
-        // 2-bit tag, 12-bit year, 4-bit month, 5-bit day, 5-bit hour, 6-bit minute, 6-bit second
-        // TTYY YYYY | YYYY YYMM | MMDD DDDH | HHHH MMMM | MMSS SSSS
-
-        let byte1 = buf[1];
-        let mut raw_year = ((byte0 & 0x3F) as u16) << 6;
-        raw_year |= (byte1 >> 2) as u16;
-
-        let byte2 = buf[2];
-        let raw_month = ((byte1 & 0x03) << 2) | (byte2 >> 6);
-
-        let raw_day = (byte2 & 0x3E) >> 1;
-
-        let byte3 = buf[3];
-        let raw_hour = ((byte2 & 0x01) << 4) | (byte3 >> 4);
-
-        let byte4 = buf[4];
-        let raw_minute = ((byte3 & 0x0F) << 2) | (byte4 >> 6);
-
-        let raw_second = byte4 & 0x3F;
-
-        // no need to check year as every possible number is a valid year
-        check_deser_in_range_or_none(raw_month, MONTH_RAW_MIN, MONTH_RAW_MAX, MONTH_RAW_NONE)?;
-        // no need to check day as every possible number is a valid day
-        check_deser_in_range_or_none(raw_hour, HOUR_MIN, HOUR_MAX, HOUR_RAW_NONE)?;
-        check_deser_in_range_or_none(raw_minute, MINUTE_MIN, MINUTE_MAX, MINUTE_RAW_NONE)?;
-        check_deser_in_range_or_none(raw_second, SECOND_MIN, SECOND_MAX, SECOND_RAW_NONE)?;
-
-        Ok(DateTime {
-            year: raw_year,
-            month: raw_month,
-            day: raw_day,
-            hour: raw_hour,
-            minute: raw_minute,
-            second: raw_second,
-        })
-    }
-
 }
 
 impl Date for DateTime {
@@ -145,6 +98,55 @@ impl Serializable for DateTime {
 
         write_array_map_err(&[b0, b1, b2, b3, b4], writer)
             .map_err(|_| SerializationError::IoError)
+    }
+}
+
+impl Deserializable for DateTime {
+    fn deserialize<R: Read>(reader: &mut R) -> Result<DateTime, DeserializationError> {
+        let mut buf = [0; SERIALIZED_SIZE];
+        read_exact(reader, &mut buf)?;
+
+        let byte0 = buf[0];
+
+        if byte0 & 0b1100_0000 != DATE_TIME_TAG {
+            return Err(DeserializationError::IncorrectTypeTag);
+        }
+
+        // 2-bit tag, 12-bit year, 4-bit month, 5-bit day, 5-bit hour, 6-bit minute, 6-bit second
+        // TTYY YYYY | YYYY YYMM | MMDD DDDH | HHHH MMMM | MMSS SSSS
+
+        let byte1 = buf[1];
+        let mut raw_year = ((byte0 & 0x3F) as u16) << 6;
+        raw_year |= (byte1 >> 2) as u16;
+
+        let byte2 = buf[2];
+        let raw_month = ((byte1 & 0x03) << 2) | (byte2 >> 6);
+
+        let raw_day = (byte2 & 0x3E) >> 1;
+
+        let byte3 = buf[3];
+        let raw_hour = ((byte2 & 0x01) << 4) | (byte3 >> 4);
+
+        let byte4 = buf[4];
+        let raw_minute = ((byte3 & 0x0F) << 2) | (byte4 >> 6);
+
+        let raw_second = byte4 & 0x3F;
+
+        // no need to check year as every possible number is a valid year
+        check_deser_in_range_or_none(raw_month, MONTH_RAW_MIN, MONTH_RAW_MAX, MONTH_RAW_NONE)?;
+        // no need to check day as every possible number is a valid day
+        check_deser_in_range_or_none(raw_hour, HOUR_MIN, HOUR_MAX, HOUR_RAW_NONE)?;
+        check_deser_in_range_or_none(raw_minute, MINUTE_MIN, MINUTE_MAX, MINUTE_RAW_NONE)?;
+        check_deser_in_range_or_none(raw_second, SECOND_MIN, SECOND_MAX, SECOND_RAW_NONE)?;
+
+        Ok(DateTime {
+            year: raw_year,
+            month: raw_month,
+            day: raw_day,
+            hour: raw_hour,
+            minute: raw_minute,
+            second: raw_second,
+        })
     }
 }
 

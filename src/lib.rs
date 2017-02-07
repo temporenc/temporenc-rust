@@ -10,8 +10,8 @@
 //! All of the fields in a component ("day" in `Date`, "minute" in `Time`, etc) are optional, so
 //! the accessors expose `Option<T>` or an enum with a `None` variant.
 //!
-//! All of the types implement `Serializable` which, surprisingly enough, provides methods related
-//! to serialization.
+//! All of the structs implement `Serializable` and `Deserializable` which, surprisingly enough,
+//! provide methods related to serialization and deserialization.
 //!
 //! ```
 //! use temporenc::*;
@@ -64,6 +64,12 @@ pub trait Serializable {
     /// Serialize into the provided writer with the Temporenc format. Returns the number of bytes
     /// written, which will be the same as `serialized_size()`.
     fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError>;
+}
+
+/// Deserialize from the Temporenc binary format.
+pub trait Deserializable: Sized {
+    /// Deserialize from the provided reader with the Temporenc format.
+    fn deserialize<R: Read>(reader: &mut R) -> Result<Self, DeserializationError>;
 }
 
 /// Represents the Temporenc "Date" component.
@@ -123,6 +129,7 @@ pub use date_time_subsecond::DateTimeSubSecond;
 pub use date_time_subsecond_offset::DateTimeSubSecondOffset;
 pub use frac_second::FractionalSecond;
 
+/// Used when creating a struct via `::new()`.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CreationError {
     InvalidFieldValue,

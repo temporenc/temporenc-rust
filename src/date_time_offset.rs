@@ -2,6 +2,7 @@ use std::io::{Read, Write};
 
 use super::*;
 
+/// A Date and Time with UTC Offset.
 #[derive(Debug, PartialEq)]
 pub struct DateTimeOffset {
     year: u16,
@@ -27,60 +28,6 @@ impl DateTimeOffset {
             offset: offset_num(offset)?
         })
     }
-
-    pub fn deserialize<R: Read>(reader: &mut R) -> Result<DateTimeOffset, DeserializationError> {
-        let mut buf = [0; SERIALIZED_SIZE];
-        read_exact(reader, &mut buf)?;
-
-        let byte0 = buf[0];
-
-        if byte0 & 0b1110_0000 != DATE_TIME_OFFSET_TAG {
-            return Err(DeserializationError::IncorrectTypeTag);
-        }
-
-        // 3-bit tag, 12-bit year, 4-bit month, 5-bit day, 5-bit hour, 6-bit minute, 6-bit second,
-        // 7-bit offset
-        // TTTY YYYY | YYYY YYYM | MMMD DDDD | HHHH HMMM | MMMS SSSS | SOOO OOOO
-
-        let mut raw_year = ((byte0 & 0x1F) as u16) << 7;
-        let byte1 = buf[1];
-        raw_year |= (byte1 as u16) >> 1;
-
-        let byte2 = buf[2];
-        let raw_month = ((byte1 & 0x01) << 3) | ((byte2 & 0xE0) >> 5);
-
-        let raw_day = byte2 & 0x1F;
-
-        let byte3 = buf[3];
-        let raw_hour = byte3 >> 3;
-
-        let byte4 = buf[4];
-        let raw_minute = ((byte3 & 0x07) << 3) | (byte4 >> 5);
-
-        let byte5 = buf[5];
-        let raw_second = (byte4 & 0x1F) << 1 | (byte5 >> 7);
-
-        let raw_offset = byte5 & 0x7F;
-
-        // no need to check year as every possible number is a valid year
-        check_deser_in_range_or_none(raw_month, MONTH_RAW_MIN, MONTH_RAW_MAX, MONTH_RAW_NONE)?;
-        // no need to check day as every possible number is a valid day
-        check_deser_in_range_or_none(raw_hour, HOUR_MIN, HOUR_MAX, HOUR_RAW_NONE)?;
-        check_deser_in_range_or_none(raw_minute, MINUTE_MIN, MINUTE_MAX, MINUTE_RAW_NONE)?;
-        check_deser_in_range_or_none(raw_second, SECOND_MIN, SECOND_MAX, SECOND_RAW_NONE)?;
-        // no need to check offset as every possible number is a valid offset
-
-        Ok(DateTimeOffset {
-            year: raw_year,
-            month: raw_month,
-            day: raw_day,
-            hour: raw_hour,
-            minute: raw_minute,
-            second: raw_second,
-            offset: raw_offset
-        })
-    }
-
 }
 
 impl Date for DateTimeOffset {
@@ -164,6 +111,61 @@ impl Serializable for DateTimeOffset {
 
         write_array_map_err(&[b0, b1, b2, b3, b4, b5], writer)
             .map_err(|_| SerializationError::IoError)
+    }
+}
+
+impl Deserializable for DateTimeOffset {
+    fn deserialize<R: Read>(reader: &mut R) -> Result<DateTimeOffset, DeserializationError> {
+        let mut buf = [0; SERIALIZED_SIZE];
+        read_exact(reader, &mut buf)?;
+
+        let byte0 = buf[0];
+
+        if byte0 & 0b1110_0000 != DATE_TIME_OFFSET_TAG {
+            return Err(DeserializationError::IncorrectTypeTag);
+        }
+
+        // 3-bit tag, 12-bit year, 4-bit month, 5-bit day, 5-bit hour, 6-bit minute, 6-bit second,
+        // 7-bit offset
+        // TTTY YYYY | YYYY YYYM | MMMD DDDD | HHHH HMMM | MMMS SSSS | SOOO OOOO
+
+        let mut raw_year = ((byte0 & 0x1F) as u16) << 7;
+        let byte1 = buf[1];
+        raw_year |= (byte1 as u16) >> 1;
+
+        let byte2 = buf[2];
+        let raw_month = ((byte1 & 0x01) << 3) | ((byte2 & 0xE0) >> 5);
+
+        let raw_day = byte2 & 0x1F;
+
+        let byte3 = buf[3];
+        let raw_hour = byte3 >> 3;
+
+        let byte4 = buf[4];
+        let raw_minute = ((byte3 & 0x07) << 3) | (byte4 >> 5);
+
+        let byte5 = buf[5];
+        let raw_second = (byte4 & 0x1F) << 1 | (byte5 >> 7);
+
+        let raw_offset = byte5 & 0x7F;
+
+        // no need to check year as every possible number is a valid year
+        check_deser_in_range_or_none(raw_month, MONTH_RAW_MIN, MONTH_RAW_MAX, MONTH_RAW_NONE)?;
+        // no need to check day as every possible number is a valid day
+        check_deser_in_range_or_none(raw_hour, HOUR_MIN, HOUR_MAX, HOUR_RAW_NONE)?;
+        check_deser_in_range_or_none(raw_minute, MINUTE_MIN, MINUTE_MAX, MINUTE_RAW_NONE)?;
+        check_deser_in_range_or_none(raw_second, SECOND_MIN, SECOND_MAX, SECOND_RAW_NONE)?;
+        // no need to check offset as every possible number is a valid offset
+
+        Ok(DateTimeOffset {
+            year: raw_year,
+            month: raw_month,
+            day: raw_day,
+            hour: raw_hour,
+            minute: raw_minute,
+            second: raw_second,
+            offset: raw_offset
+        })
     }
 }
 
