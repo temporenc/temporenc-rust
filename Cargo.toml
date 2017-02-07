@@ -1,6 +1,6 @@
 [package]
 name = "temporenc"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Marshall Pierce <marshall@mpierce.org>"]
 description = "Library for the Temporenc time/date format."
 documentation = "https://docs.rs/temporenc/"
