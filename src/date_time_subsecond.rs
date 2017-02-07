@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use super::*;
 use super::frac_second;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct DateTimeSubSecond {
     year: u16,
     month: u8,
@@ -18,17 +18,15 @@ impl DateTimeSubSecond {
     #[inline]
     pub fn new(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
                minute: Option<u8>, second: Option<u8>, frac_second: FractionalSecond) -> Result<DateTimeSubSecond, CreationError> {
-        let err_val = CreationError::InvalidFieldValue;
-
-        check_frac_second(frac_second, err_val)?;
+        check_frac_second(frac_second)?;
 
         Ok(DateTimeSubSecond {
-            year: year_num(year, err_val)?,
-            month: month_num(month, err_val)?,
-            day: day_num(day, err_val)?,
-            hour: hour_num(hour, err_val)?,
-            minute: minute_num(minute, err_val)?,
-            second: second_num(second, err_val)?,
+            year: year_num(year)?,
+            month: month_num(month)?,
+            day: day_num(day)?,
+            hour: hour_num(hour)?,
+            minute: minute_num(minute)?,
+            second: second_num(second)?,
             frac_second_fw: frac_second::encode_fixed_width(&frac_second)
         })
     }
@@ -120,54 +118,6 @@ impl DateTimeSubSecond {
             frac_second_fw: frac_second_fw
         })
     }
-
-    pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        let b0_partial = DATE_TIME_SUBSECOND_TAG | (self.year >> 8) as u8;
-
-        let b1 = self.year as u8;
-        let b2 = (self.month << 4) | (self.day >> 1);
-        let b3 = (self.day << 7) | (self.hour << 2) | (self.minute >> 4);
-        let b4 = (self.minute << 4) | (self.second >> 2);
-        let b5_partial = self.second << 6;
-
-        let mut buf = [0, b1, b2, b3, b4, 0, 0, 0, 0];
-
-        let frac_prefix = frac_second::FRAC_SECOND_FIXED_WIDTH_PREFIX_MASK & self.frac_second_fw;
-        let frac_value = frac_second::FRAC_SECOND_FIXED_WIDTH_VALUE_MASK & self.frac_second_fw;
-
-        let slice_end_index = match frac_prefix {
-            frac_second::FRAC_SECOND_FIXED_WIDTH_NONE => {
-                buf[0] = b0_partial | PRECISION_DTS_NONE_TAG;
-                buf[5] = b5_partial;
-                6
-            },
-            frac_second::FRAC_SECOND_FIXED_WIDTH_MILLI => {
-                buf[0] = b0_partial | PRECISION_DTS_MILLIS_TAG;
-                buf[5] = b5_partial | (frac_value >> 4) as u8;
-                buf[6] = (frac_value << 4) as u8;
-                7
-            },
-            frac_second::FRAC_SECOND_FIXED_WIDTH_MICRO => {
-                buf[0] = b0_partial | PRECISION_DTS_MICROS_TAG;
-                buf[5] = b5_partial | (frac_value >> 14) as u8;
-                buf[6] = (frac_value >> 6) as u8;
-                buf[7] = (frac_value << 2) as u8;
-                8
-            },
-            frac_second::FRAC_SECOND_FIXED_WIDTH_NANO => {
-                buf[0] = b0_partial | PRECISION_DTS_NANOS_TAG;
-                buf[5] = b5_partial | (frac_value >> 24) as u8;
-                buf[6] = (frac_value >> 16) as u8;
-                buf[7] = (frac_value >> 8) as u8;
-                buf[8] = frac_value as u8;
-                9
-            },
-            _ => panic!("Corrupt fixed width encoded fractional second")
-        };
-
-        write_array_map_err(&buf[0..slice_end_index], writer)
-            .map_err(|_| SerializationError::IoError)
-    }
 }
 
 impl Date for DateTimeSubSecond {
@@ -240,6 +190,54 @@ impl Serializable for DateTimeSubSecond {
             FractionalSecond::Nanoseconds(_) => MAX_SERIALIZED_SIZE,
             FractionalSecond::None => MIN_SERIALIZED_SIZE,
         }
+    }
+
+    fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
+        let b0_partial = DATE_TIME_SUBSECOND_TAG | (self.year >> 8) as u8;
+
+        let b1 = self.year as u8;
+        let b2 = (self.month << 4) | (self.day >> 1);
+        let b3 = (self.day << 7) | (self.hour << 2) | (self.minute >> 4);
+        let b4 = (self.minute << 4) | (self.second >> 2);
+        let b5_partial = self.second << 6;
+
+        let mut buf = [0, b1, b2, b3, b4, 0, 0, 0, 0];
+
+        let frac_prefix = frac_second::FRAC_SECOND_FIXED_WIDTH_PREFIX_MASK & self.frac_second_fw;
+        let frac_value = frac_second::FRAC_SECOND_FIXED_WIDTH_VALUE_MASK & self.frac_second_fw;
+
+        let slice_end_index = match frac_prefix {
+            frac_second::FRAC_SECOND_FIXED_WIDTH_NONE => {
+                buf[0] = b0_partial | PRECISION_DTS_NONE_TAG;
+                buf[5] = b5_partial;
+                6
+            },
+            frac_second::FRAC_SECOND_FIXED_WIDTH_MILLI => {
+                buf[0] = b0_partial | PRECISION_DTS_MILLIS_TAG;
+                buf[5] = b5_partial | (frac_value >> 4) as u8;
+                buf[6] = (frac_value << 4) as u8;
+                7
+            },
+            frac_second::FRAC_SECOND_FIXED_WIDTH_MICRO => {
+                buf[0] = b0_partial | PRECISION_DTS_MICROS_TAG;
+                buf[5] = b5_partial | (frac_value >> 14) as u8;
+                buf[6] = (frac_value >> 6) as u8;
+                buf[7] = (frac_value << 2) as u8;
+                8
+            },
+            frac_second::FRAC_SECOND_FIXED_WIDTH_NANO => {
+                buf[0] = b0_partial | PRECISION_DTS_NANOS_TAG;
+                buf[5] = b5_partial | (frac_value >> 24) as u8;
+                buf[6] = (frac_value >> 16) as u8;
+                buf[7] = (frac_value >> 8) as u8;
+                buf[8] = frac_value as u8;
+                9
+            },
+            _ => panic!("Corrupt fixed width encoded fractional second")
+        };
+
+        write_array_map_err(&buf[0..slice_end_index], writer)
+            .map_err(|_| SerializationError::IoError)
     }
 }
 

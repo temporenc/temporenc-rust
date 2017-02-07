@@ -21,6 +21,7 @@ fn deser_dt_all_missing() {
 
     let mut serialized = Vec::new();
     assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
+    assert_eq!(d.serialized_size(), serialized.len());
     assert_eq!(bytes, serialized);
 }
 
@@ -37,6 +38,7 @@ fn deser_dt_none_missing() {
 
     let mut serialized = Vec::new();
     assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
+    assert_eq!(d.serialized_size(), serialized.len());
     assert_eq!(bytes, serialized);
 }
 
@@ -123,4 +125,6 @@ fn serialize_struct_and_check(year: Option<u16>, month: Option<u8>, day: Option<
     assert_eq!(hour, deser.hour());
     assert_eq!(minute, deser.minute());
     assert_eq!(second, deser.second());
+
+    assert_eq!(new, deser);
 }

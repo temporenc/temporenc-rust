@@ -22,6 +22,7 @@ fn deser_dts_all_missing() {
 
     let mut serialized = Vec::new();
     assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
+    assert_eq!(d.serialized_size(), serialized.len());
     assert_eq!(bytes, serialized);
 }
 
@@ -39,6 +40,7 @@ fn deser_dts_all_no_subsec() {
 
     let mut serialized = Vec::new();
     assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
+    assert_eq!(d.serialized_size(), serialized.len());
     assert_eq!(bytes, serialized);
 }
 
@@ -57,6 +59,7 @@ fn deser_dts_all_ms() {
 
     let mut serialized = Vec::new();
     assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
+    assert_eq!(d.serialized_size(), serialized.len());
     assert_eq!(bytes, serialized);
 }
 
@@ -74,6 +77,7 @@ fn deser_dts_all_us() {
 
     let mut serialized = Vec::new();
     assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
+    assert_eq!(d.serialized_size(), serialized.len());
     assert_eq!(bytes, serialized);
 }
 
@@ -91,6 +95,7 @@ fn deser_dts_all_ns() {
 
     let mut serialized = Vec::new();
     assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
+    assert_eq!(d.serialized_size(), serialized.len());
     assert_eq!(bytes, serialized);
 }
 
@@ -174,15 +179,17 @@ fn serialize_struct_and_check(year: Option<u16>, month: Option<u8>, day: Option<
     let expected_length = new.serialized_size();
     assert_eq!(expected_length, new.serialize(vec).unwrap());
     assert_eq!(expected_length, vec.len());
-    let dts = DateTimeSubSecond::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
+    let deser = DateTimeSubSecond::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
 
-    assert_eq!(year, dts.year());
-    assert_eq!(month, dts.month());
-    assert_eq!(day, dts.day());
+    assert_eq!(year, deser.year());
+    assert_eq!(month, deser.month());
+    assert_eq!(day, deser.day());
 
-    assert_eq!(hour, dts.hour());
-    assert_eq!(minute, dts.minute());
-    assert_eq!(second, dts.second());
+    assert_eq!(hour, deser.hour());
+    assert_eq!(minute, deser.minute());
+    assert_eq!(second, deser.second());
 
-    assert_eq!(frac_second, dts.fractional_second());
+    assert_eq!(frac_second, deser.fractional_second());
+
+    assert_eq!(new, deser);
 }

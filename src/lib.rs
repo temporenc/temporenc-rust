@@ -1,12 +1,72 @@
+//! An implementation of [Temporenc](https://temporenc.org/) v1, a compact binary format for
+//! temporal data. This is (intentionally) not a full-featured time library; it is focused just on
+//! handling the Temporenc format.
+//!
+//! Temporenc has the concept of "components" like date or time, and "types", which are a
+//! composition of one ore more components like "date + time" or just "time". Components are
+//! repesented in this library by traits (`Time`, `Date`, etc) and types by structs
+//! (`TimeOnly` which only implements `Time`, `DateTime` which implements `Date` and `Time`, etc).
+//!
+//! All of the fields in a component ("day" in `Date`, "minute" in `Time`, etc) are optional, so
+//! the accessors expose `Option<T>` or an enum with a `None` variant.
+//!
+//! All of the types implement `Serializable` which, surprisingly enough, provides methods related
+//! to serialization.
+//!
+//! ```
+//! use temporenc::*;
+//! use std::io::Cursor;
+//!
+//! let mut vec = Vec::new();
+//!
+//! // Serialize a date
+//! // 2017-01-15
+//! let date = DateOnly::new(Some(2017), Some(01), Some(15)).unwrap();
+//!
+//! let date_bytes_written = date.serialize(&mut vec).unwrap();
+//! assert_eq!(date_bytes_written, date.serialized_size());
+//! // Date is not variable precision, so the serialized size is always the max size.
+//! assert_eq!(DateOnly::max_serialized_size(), date.serialized_size());
+//!
+//! // Serialize a date + time + subsecond precision + offset
+//! // 2017-01-15T18:45:30.123456+02:15
+//! let dtso = DateTimeSubSecondOffset::new(Some(2017), Some(01), Some(15),
+//!     Some(18), Some(45), Some(30), FractionalSecond::Microseconds(123456),
+//!     OffsetValue::UtcOffset(135)).unwrap();
+//!
+//! let dtso_bytes_written = dtso.serialize(&mut vec).unwrap();
+//! assert_eq!(dtso.serialized_size(), dtso_bytes_written);
+//! // This one is only microseconds, not nanoseconds, so it doesn't have the full size
+//! assert_eq!(DateTimeSubSecondOffset::max_serialized_size() - 1,
+//!     dtso.serialized_size());
+//!
+//! // Deserialize the two items
+//! assert_eq!(date.serialized_size() + dtso.serialized_size(), vec.len());
+//! let mut cursor = Cursor::new(vec.as_slice());
+//!
+//! let deser_date = DateOnly::deserialize(&mut cursor).unwrap();
+//! assert_eq!(date, deser_date);
+//!
+//! let deser_dtso =
+//!     DateTimeSubSecondOffset::deserialize(&mut cursor).unwrap();
+//! assert_eq!(dtso, deser_dtso);
+//! ```
+
 use std::io::{Read, Write, Error};
 
+/// Serialize into the Temporenc binary format.
 pub trait Serializable {
-    /// The largest encoded size of any instance of the type
+    /// The largest encoded size of any instance of the type. Some types have variable precision,
+    /// and instances with higher precision will use more bytes than those with lower precision.
     fn max_serialized_size() -> usize;
-    /// The encoded size of this instance
+    /// The encoded size of this instance. No larger than `max_serialized_size()`.
     fn serialized_size(&self) -> usize;
+    /// Serialize into the provided writer with the Temporenc format. Returns the number of bytes
+    /// written, which will be the same as `serialized_size()`.
+    fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError>;
 }
 
+/// Represents the Temporenc "Date" component.
 pub trait Date {
     /// If present, the year. In range [0, 4094].
     fn year(&self) -> Option<u16>;
@@ -16,6 +76,7 @@ pub trait Date {
     fn day(&self) -> Option<u8>;
 }
 
+/// Represents the Temporenc "Time" component.
 pub trait Time {
     /// If present, the number of hours. In range [0, 23].
     fn hour(&self) -> Option<u8>;
@@ -25,10 +86,12 @@ pub trait Time {
     fn second(&self) -> Option<u8>;
 }
 
+/// Represents the Temporenc "Sub-second precision" component.
 pub trait SubSecond {
     fn fractional_second(&self) -> FractionalSecond;
 }
 
+/// Represents the Temporenc "UTC Offset" component.
 pub trait Offset {
     fn offset(&self) -> OffsetValue;
 }
@@ -39,7 +102,8 @@ pub enum OffsetValue {
     None,
     /// Temporal value is not at UTC, but the timezone is not specified here
     SpecifiedElsewhere,
-    /// Temporal value is offset from UTC by the specified number of minutes
+    /// Temporal value is offset from UTC by the specified number of minutes.
+    /// The number of minutes must be a multiple of 15.
     UtcOffset(i16)
 }
 
@@ -74,12 +138,6 @@ pub enum DeserializationError {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SerializationError {
-    IoError
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ComponentSerializationError {
-    InvalidFieldValue,
     IoError
 }
 
@@ -160,10 +218,9 @@ fn write_array_map_err<W: Write>(bytes: &[u8], writer: &mut W) -> Result<usize, 
     writer.write_all(bytes).map(|_| bytes.len())
 }
 
-fn check_option_in_range<T: PartialOrd, E: Copy>(val: Option<T>, min: T, max: T, none: T,
-                                                 err_val: E) -> Result<T, E> {
+fn check_option_in_range<T: PartialOrd>(val: Option<T>, min: T, max: T, none: T) -> Result<T, CreationError> {
     if let Some(v) = val {
-        return check_in_range(v, min, max, err_val);
+        return check_in_range(v, min, max, CreationError::InvalidFieldValue);
     }
 
     Ok(none)
@@ -187,55 +244,55 @@ fn check_deser_in_range_or_none<T: PartialOrd>(v: T, min: T, max: T, none: T) ->
 }
 
 #[inline]
-fn year_num<E: Copy>(year: Option<u16>, err_val: E) -> Result<u16, E> {
-    check_option_in_range(year, YEAR_MIN, YEAR_MAX, YEAR_RAW_NONE, err_val)
+fn year_num(year: Option<u16>) -> Result<u16, CreationError> {
+    check_option_in_range(year, YEAR_MIN, YEAR_MAX, YEAR_RAW_NONE)
 }
 
 #[inline]
-fn month_num<E: Copy>(month: Option<u8>, err_val: E) -> Result<u8, E> {
+fn month_num(month: Option<u8>) -> Result<u8, CreationError> {
     if let Some(m) = month {
         // will never underflow because min = 1
-        return check_in_range(m, MONTH_MIN, MONTH_MAX, err_val).map(|m| m - 1);
+        return check_in_range(m, MONTH_MIN, MONTH_MAX, CreationError::InvalidFieldValue).map(|m| m - 1);
     }
 
     Ok(MONTH_RAW_NONE)
 }
 
 #[inline]
-fn day_num<E: Copy>(day: Option<u8>, err_val: E) -> Result<u8, E> {
+fn day_num(day: Option<u8>) -> Result<u8, CreationError> {
     if let Some(d) = day {
         // will never underflow because min = 1
-        return check_in_range(d, DAY_MIN, DAY_MAX, err_val).map(|d| d - 1);
+        return check_in_range(d, DAY_MIN, DAY_MAX, CreationError::InvalidFieldValue).map(|d| d - 1);
     }
 
     Ok(DAY_RAW_NONE)
 }
 
 #[inline]
-fn hour_num<E: Copy>(hour: Option<u8>, err_val: E) -> Result<u8, E> {
-    check_option_in_range(hour, HOUR_MIN, HOUR_MAX, HOUR_RAW_NONE, err_val)
+fn hour_num(hour: Option<u8>) -> Result<u8, CreationError> {
+    check_option_in_range(hour, HOUR_MIN, HOUR_MAX, HOUR_RAW_NONE)
 }
 
 #[inline]
-fn minute_num<E: Copy>(minute: Option<u8>, err_val: E) -> Result<u8, E> {
-    check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX, MINUTE_RAW_NONE, err_val)
+fn minute_num(minute: Option<u8>) -> Result<u8, CreationError> {
+    check_option_in_range(minute, MINUTE_MIN, MINUTE_MAX, MINUTE_RAW_NONE)
 }
 
 #[inline]
-fn second_num<E: Copy>(second: Option<u8>, err_val: E) -> Result<u8, E> {
-    check_option_in_range(second, SECOND_MIN, SECOND_MAX, SECOND_RAW_NONE, err_val)
+fn second_num(second: Option<u8>) -> Result<u8, CreationError> {
+    check_option_in_range(second, SECOND_MIN, SECOND_MAX, SECOND_RAW_NONE)
 }
 
 #[inline]
-fn offset_num<E: Copy>(offset: OffsetValue, err_val: E) -> Result<u8, E> {
+fn offset_num(offset: OffsetValue) -> Result<u8, CreationError> {
     match offset {
         OffsetValue::None => Ok(OFFSET_RAW_NONE),
         OffsetValue::SpecifiedElsewhere => Ok(OFFSET_RAW_ELSEWHERE),
         OffsetValue::UtcOffset(o) => {
-            check_in_range(o, OFFSET_MIN, OFFSET_MAX, err_val)?;
+            check_in_range(o, OFFSET_MIN, OFFSET_MAX, CreationError::InvalidFieldValue)?;
 
             if o % 15 != 0 {
-                return Err(err_val);
+                return Err(CreationError::InvalidFieldValue);
             };
 
             Ok(((o / 15) + 64) as u8)
@@ -243,17 +300,17 @@ fn offset_num<E: Copy>(offset: OffsetValue, err_val: E) -> Result<u8, E> {
     }
 }
 
-fn check_frac_second<E: Copy>(frac_second: FractionalSecond, err_val: E) -> Result<(), E> {
+fn check_frac_second(frac_second: FractionalSecond) -> Result<(), CreationError> {
     match frac_second {
         FractionalSecond::None => {},
         FractionalSecond::Milliseconds(ms) => {
-            check_in_range(ms, MILLIS_MIN, MILLIS_MAX, err_val)?;
+            check_in_range(ms, MILLIS_MIN, MILLIS_MAX, CreationError::InvalidFieldValue)?;
         },
         FractionalSecond::Microseconds(us) => {
-            check_in_range(us, MICROS_MIN, MICROS_MAX, err_val)?;
+            check_in_range(us, MICROS_MIN, MICROS_MAX, CreationError::InvalidFieldValue)?;
         },
         FractionalSecond::Nanoseconds(ns) => {
-            check_in_range(ns, NANOS_MIN, NANOS_MAX, err_val)?;
+            check_in_range(ns, NANOS_MIN, NANOS_MAX, CreationError::InvalidFieldValue)?;
         }
     }
 

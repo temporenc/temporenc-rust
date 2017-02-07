@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 
 use super::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct DateTimeOffset {
     year: u16,
     month: u8,
@@ -17,16 +17,14 @@ impl DateTimeOffset {
     #[inline]
     pub fn new(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
                minute: Option<u8>, second: Option<u8>, offset: OffsetValue) -> Result<DateTimeOffset, CreationError> {
-        let err_val = CreationError::InvalidFieldValue;
-
         Ok(DateTimeOffset {
-            year: year_num(year, err_val)?,
-            month: month_num(month, err_val)?,
-            day: day_num(day, err_val)?,
-            hour: hour_num(hour, err_val)?,
-            minute: minute_num(minute, err_val)?,
-            second: second_num(second, err_val)?,
-            offset: offset_num(offset, err_val)?
+            year: year_num(year)?,
+            month: month_num(month)?,
+            day: day_num(day)?,
+            hour: hour_num(hour)?,
+            minute: minute_num(minute)?,
+            second: second_num(second)?,
+            offset: offset_num(offset)?
         })
     }
 
@@ -83,17 +81,6 @@ impl DateTimeOffset {
         })
     }
 
-    pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        let b0 = DATE_TIME_OFFSET_TAG | (self.year >> 7) as u8;
-        let b1 = ((self.year << 1) as u8) | (self.month >> 3);
-        let b2 = (self.month << 5) | self.day;
-        let b3 = (self.hour << 3) | (self.minute >> 3);
-        let b4 = (self.minute << 5) | (self.second >> 1);
-        let b5 = (self.second << 7) | self.offset;
-
-        write_array_map_err(&[b0, b1, b2, b3, b4, b5], writer)
-                    .map_err(|_| SerializationError::IoError)
-    }
 }
 
 impl Date for DateTimeOffset {
@@ -165,6 +152,18 @@ impl Serializable for DateTimeOffset {
 
     fn serialized_size(&self) -> usize {
         SERIALIZED_SIZE
+    }
+
+    fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
+        let b0 = DATE_TIME_OFFSET_TAG | (self.year >> 7) as u8;
+        let b1 = ((self.year << 1) as u8) | (self.month >> 3);
+        let b2 = (self.month << 5) | self.day;
+        let b3 = (self.hour << 3) | (self.minute >> 3);
+        let b4 = (self.minute << 5) | (self.second >> 1);
+        let b5 = (self.second << 7) | self.offset;
+
+        write_array_map_err(&[b0, b1, b2, b3, b4, b5], writer)
+            .map_err(|_| SerializationError::IoError)
     }
 }
 

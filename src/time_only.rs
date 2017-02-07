@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 
 use super::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TimeOnly {
     hour: u8,
     minute: u8,
@@ -12,12 +12,10 @@ pub struct TimeOnly {
 impl TimeOnly {
     #[inline]
     pub fn new(hour: Option<u8>, minute: Option<u8>, second: Option<u8>) -> Result<TimeOnly, CreationError> {
-        let err_val = CreationError::InvalidFieldValue;
-
         Ok(TimeOnly {
-            hour: hour_num(hour, err_val)?,
-            minute: minute_num(minute, err_val)?,
-            second: second_num(second, err_val)?,
+            hour: hour_num(hour)?,
+            minute: minute_num(minute)?,
+            second: second_num(second)?,
         })
     }
 
@@ -52,15 +50,6 @@ impl TimeOnly {
             minute: raw_minute,
             second: raw_second
         })
-    }
-
-    pub fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
-        let b0 = TIME_TAG | self.hour >> 4;
-        let b1 = (self.hour << 4) | (self.minute >> 2);
-        let b2 = (self.minute << 6) | (self.second);
-
-        write_array_map_err(&[b0, b1, b2], writer)
-            .map_err(|_| SerializationError::IoError)
     }
 }
 
@@ -98,6 +87,16 @@ impl Serializable for TimeOnly {
     fn serialized_size(&self) -> usize {
         SERIALIZED_SIZE
     }
+
+    fn serialize<W: Write>(&self, writer: &mut W) -> Result<usize, SerializationError> {
+        let b0 = TIME_TAG | self.hour >> 4;
+        let b1 = (self.hour << 4) | (self.minute >> 2);
+        let b2 = (self.minute << 6) | (self.second);
+
+        write_array_map_err(&[b0, b1, b2], writer)
+            .map_err(|_| SerializationError::IoError)
+    }
+
 }
 
 const SERIALIZED_SIZE: usize = 3;

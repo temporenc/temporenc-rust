@@ -15,6 +15,7 @@ fn deser_time_all_missing() {
 
     let mut serialized = Vec::new();
     assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
+    assert_eq!(d.serialized_size(), serialized.len());
     assert_eq!(bytes, serialized);
 }
 
@@ -28,6 +29,7 @@ fn deser_time_none_missing() {
 
     let mut serialized = Vec::new();
     assert_eq!(d.serialized_size(), d.serialize(&mut serialized).unwrap());
+    assert_eq!(d.serialized_size(), serialized.len());
     assert_eq!(bytes, serialized);
 }
 
@@ -57,12 +59,14 @@ fn time_roundtrip_struct() {
                 let bytes_written = new.serialize(&mut vec).unwrap();
                 assert_eq!(3, bytes_written);
                 assert_eq!(3, new.serialized_size());
-                assert_eq!(bytes_written, vec.len());
+                assert_eq!(3, vec.len());
                 let deser = TimeOnly::deserialize(&mut Cursor::new(vec.as_slice())).unwrap();
 
                 assert_eq!(hour, deser.hour());
                 assert_eq!(minute, deser.minute());
                 assert_eq!(second, deser.second());
+
+                assert_eq!(new, deser);
             };
         };
     }
