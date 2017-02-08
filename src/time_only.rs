@@ -11,6 +11,8 @@ pub struct TimeOnly {
 }
 
 impl TimeOnly {
+
+    /// Returns an error if any of the arguments have invalid values, like a minute of 70.
     #[inline]
     pub fn new(hour: Option<u8>, minute: Option<u8>, second: Option<u8>) -> Result<TimeOnly, CreationError> {
         Ok(TimeOnly {

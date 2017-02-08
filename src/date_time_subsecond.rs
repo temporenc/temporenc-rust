@@ -16,6 +16,8 @@ pub struct DateTimeSubSecond {
 }
 
 impl DateTimeSubSecond {
+
+    /// Returns an error if any of the arguments have invalid values, like a month of 18.
     #[inline]
     pub fn new(year: Option<u16>, month: Option<u8>, day: Option<u8>, hour: Option<u8>,
                minute: Option<u8>, second: Option<u8>, frac_second: FractionalSecond) -> Result<DateTimeSubSecond, CreationError> {

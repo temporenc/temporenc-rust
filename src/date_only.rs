@@ -11,6 +11,8 @@ pub struct DateOnly {
 }
 
 impl DateOnly {
+
+    /// Returns an error if any of the arguments have invalid values, like a month of 18.
     #[inline]
     pub fn new(year: Option<u16>, month: Option<u8>, day: Option<u8>)
                -> Result<DateOnly, CreationError> {
